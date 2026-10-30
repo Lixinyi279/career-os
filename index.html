@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="职途 Career OS - 面向应届生的一站式求职 Agent 工作台" />
+    <meta name="theme-color" content="#14372b" />
+    <title>职途 Career OS</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314372b'/%3E%3Cpath d='M18 44V20h8l6 11 6-11h8v24h-7V31l-7 12-7-12v13z' fill='%23d9f99d'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span>职</span></div>
+          <div>
+            <div class="brand-name">职途</div>
+            <div class="brand-subtitle">CAREER OS</div>
+          </div>
+        </div>
+
+        <div class="cycle-pill">
+          <span class="cycle-dot"></span>
+          <span>2027 届秋招</span>
+          <span class="cycle-week">W06</span>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" data-view="dashboard">
+            <span data-icon="layout-dashboard"></span>
+            <span>工作台</span>
+          </button>
+          <button class="nav-item" data-view="positioning">
+            <span data-icon="target"></span>
+            <span>方向定位</span>
+          </button>
+          <button class="nav-item" data-view="resume">
+            <span data-icon="file-text"></span>
+            <span>简历工坊</span>
+            <span class="nav-count" id="resume-nav-count">58</span>
+          </button>
+          <button class="nav-item" data-view="interview">
+            <span data-icon="mic"></span>
+            <span>模拟面试</span>
+          </button>
+          <button class="nav-item" data-view="plan">
+            <span data-icon="calendar-check"></span>
+            <span>行动计划</span>
+          </button>
+          <button class="nav-item" data-view="profile">
+            <span data-icon="user-round"></span>
+            <span>个人档案</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+
+        <button class="skill-status-card" data-action="show-skills">
+          <div class="skill-status-icon" data-icon="blocks"></div>
+          <div class="skill-status-copy">
+            <strong>5 个 Skills 在线</strong>
+            <span>运行框架已就绪</span>
+          </div>
+          <span data-icon="chevron-right"></span>
+        </button>
+
+        <div class="sidebar-footer">
+          <div class="avatar avatar-sm" id="sidebar-avatar">林</div>
+          <div class="sidebar-user">
+            <strong id="sidebar-user-name">林同学</strong>
+            <span>画像完整度 <b id="sidebar-completeness">62%</b></span>
+          </div>
+          <button class="icon-button icon-button-dark" data-action="open-profile" aria-label="编辑档案">
+            <span data-icon="settings-2"></span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <button class="icon-button mobile-menu" data-action="toggle-sidebar" aria-label="打开菜单">
+            <span data-icon="menu"></span>
+          </button>
+          <div class="topbar-breadcrumb">
+            <span id="breadcrumb-root">工作台</span>
+            <span class="breadcrumb-separator">/</span>
+            <strong id="breadcrumb-current">今日推进</strong>
+          </div>
+          <div class="topbar-actions">
+            <div class="save-state">
+              <span class="save-dot"></span>
+              <span>已保存到本机</span>
+            </div>
+            <button class="icon-button" data-action="open-profile" aria-label="编辑个人画像">
+              <span data-icon="sliders-horizontal"></span>
+            </button>
+            <button class="agent-trigger" data-action="open-agent">
+              <span data-icon="sparkles"></span>
+              <span>问 Agent</span>
+            </button>
+          </div>
+        </header>
+
+        <main class="main-content" id="main-content" tabindex="-1"></main>
+      </div>
+
+      <aside class="agent-panel" id="agent-panel" aria-label="职途 Agent 对话">
+        <div class="agent-panel-head">
+          <div class="agent-identity">
+            <div class="agent-avatar">
+              <span data-icon="sparkles"></span>
+              <i class="agent-online"></i>
+            </div>
+            <div>
+              <strong>职途 Agent</strong>
+              <span>你的求职策略伙伴</span>
+            </div>
+          </div>
+          <button class="icon-button agent-close" data-action="close-agent" aria-label="关闭 Agent">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+
+        <div class="agent-context">
+          <div class="agent-context-label">
+            <span data-icon="link-2"></span>
+            <span>当前上下文</span>
+          </div>
+          <strong id="agent-context-title">2027 届 · 产品 / 数据方向</strong>
+          <div class="agent-context-meta">
+            <span id="agent-context-completeness">画像 62%</span>
+            <span id="agent-context-hours">本周 14h</span>
+            <span id="agent-context-cities">上海 / 杭州</span>
+          </div>
+        </div>
+
+        <div class="agent-messages" id="agent-messages" aria-live="polite"></div>
+
+        <div class="agent-suggestions" id="agent-suggestions"></div>
+
+        <form class="agent-composer" id="agent-form">
+          <label class="sr-only" for="agent-input">给 Agent 发消息</label>
+          <textarea id="agent-input" name="message" rows="2" placeholder="描述你的处境或目标..." autocomplete="off"></textarea>
+          <div class="agent-composer-footer">
+            <div class="agent-tools">
+              <span class="agent-tool-label">
+                <span data-icon="brain-circuit"></span>
+                <span>已读取个人画像</span>
+              </span>
+            </div>
+            <button class="send-button" type="submit" aria-label="发送">
+              <span data-icon="arrow-up"></span>
+            </button>
+          </div>
+        </form>
+        <p class="agent-disclaimer">Agent 建议仅用于求职准备，请核验事实与岗位信息。</p>
+      </aside>
+    </div>
+
+    <div class="mobile-nav" aria-label="移动端导航">
+      <button class="mobile-nav-item is-active" data-view="dashboard">
+        <span data-icon="layout-dashboard"></span><span>工作台</span>
+      </button>
+      <button class="mobile-nav-item" data-view="positioning">
+        <span data-icon="target"></span><span>定位</span>
+      </button>
+      <button class="mobile-nav-item mobile-agent-button" data-action="open-agent">
+        <span data-icon="sparkles"></span><span>Agent</span>
+      </button>
+      <button class="mobile-nav-item" data-view="interview">
+        <span data-icon="mic"></span><span>面试</span>
+      </button>
+      <button class="mobile-nav-item" data-view="plan">
+        <span data-icon="calendar-check"></span><span>计划</span>
+      </button>
+    </div>
+
+    <div class="drawer-backdrop" data-action="close-overlays"></div>
+    <div id="modal-root"></div>
+    <div class="toast-stack" id="toast-root" aria-live="polite"></div>
+
+    <script src="./agent-core.js"></script>
+    <script src="./skills.career.js"></script>
+    <script src="./skills.resume.js"></script>
+    <script src="./skills.interview.js"></script>
+    <script src="./skills.plan.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
