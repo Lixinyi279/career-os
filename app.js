@@ -903,6 +903,33 @@
     openModal(content, { title: "更新个人画像", kicker: "Agent 上下文", label: "更新个人画像", className: "modal-wide" });
   }
 
+  function openLlmSettingsModal() {
+    const cfg = window.CareerOS.llm.getConfig();
+    const presetOptions = Object.keys(window.CareerOS.llm.presets).map((key) => {
+      const p = window.CareerOS.llm.presets[key];
+      return '<option value="' + key + '">' + escapeHTML(p.label) + '</option>';
+    }).join("");
+    const content =
+      '<form id="llm-form" class="modal-form">' +
+      '<label class="field"><span>模型服务</span><select name="preset" id="llm-preset">' + presetOptions + '</select></label>' +
+      '<label class="field"><span>API Key</span><input name="apiKey" type="password" value="' + escapeHTML(cfg.apiKey || "") + '" placeholder="sk-..." autocomplete="off" /></label>' +
+      '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(cfg.baseUrl || "") + '" placeholder="https://api.deepseek.com/v1" /></label>' +
+      '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(cfg.model || "") + '" placeholder="deepseek-chat" /></label>' +
+      '<div class="modal-note">' + icon("info", 16) + '<span>Key 只存在本机浏览器，不会上传。不填则继续用规则演示模式。</span></div>' +
+      '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存并启用真 AI</button></div></form>';
+    openModal(content, { title: "接入大模型", kicker: "真 AI 引擎", label: "接入大模型" });
+    const preset = document.getElementById("llm-preset");
+    if (preset) {
+      preset.addEventListener("change", () => {
+        const p = window.CareerOS.llm.presets[preset.value];
+        if (p) {
+          document.getElementById("llm-baseurl").value = p.baseUrl;
+          document.getElementById("llm-model").value = p.model;
+        }
+      });
+    }
+  }
+
   function openTaskModal() {
     const content =
       '<form id="task-form" class="modal-form">' +
@@ -956,6 +983,7 @@
       state: state,
       generatePlan: generatePlan,
       profileCompleteness: profileCompleteness,
+      llm: window.CareerOS && window.CareerOS.llm ? window.CareerOS.llm.createLlmAdapter() : null,
     };
     const result = await window.CareerAgent.orchestrator.handle(message, context);
     if (result.preset) {
@@ -1300,6 +1328,8 @@
         openProfileModal();
       } else if (action === "show-skills") {
         openSkillsModal();
+      } else if (action === "open-llm-settings") {
+        openLlmSettingsModal();
       } else if (action === "close-modal") {
         closeModal();
       } else if (action === "open-task") {
@@ -1396,6 +1426,17 @@
       showToast("新任务已加入本周计划");
     } else if (form.id === "interview-form") {
       handleInterviewAnswer(form);
+    } else if (form.id === "llm-form") {
+      const data = new FormData(form);
+      window.CareerOS.llm.saveConfig({
+        preset: String(data.get("preset") || "custom"),
+        apiKey: String(data.get("apiKey") || "").trim(),
+        baseUrl: String(data.get("baseUrl") || "").trim(),
+        model: String(data.get("model") || "").trim(),
+      });
+      closeModal();
+      const ok = window.CareerOS.llm.createLlmAdapter().configured();
+      showToast(ok ? "真 AI 已启用" : "已保存，但信息不完整，仍为演示模式");
     }
   }
 
