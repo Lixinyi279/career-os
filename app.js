@@ -152,7 +152,8 @@
 
   function createDefaultState() {
     return {
-      version: 2,
+      version: 3,
+      onboardingComplete: false,
       profile: {
         name: "林知夏",
         school: "华东某高校",
@@ -249,6 +250,7 @@
     state.evidence = Array.isArray(saved.evidence) ? saved.evidence : fresh.evidence;
     state.messages = Array.isArray(saved.messages) ? saved.messages : fresh.messages;
     state.memory = Array.isArray(saved.memory) ? saved.memory : fresh.memory;
+    if (!Object.prototype.hasOwnProperty.call(saved, "onboardingComplete")) state.onboardingComplete = true;
     state.suggestions = Array.isArray(saved.suggestions) ? saved.suggestions : fresh.suggestions;
     return state;
   }
@@ -271,6 +273,8 @@
     planFilter: "all",
     sidebarOpen: false,
     agentOpen: false,
+    onboardingStep: 0,
+    onboardingDraft: null,
   };
 
   function saveState() {
@@ -546,6 +550,11 @@
       "你的主线是 " + state.profile.targetTrack + "。Agent 已结合画像、简历与本周时间，把任务压缩到最重要的几项。",
       '<button class="button button-secondary" data-action="open-profile">' + icon("sliders-horizontal", 16) + '<span>调整画像</span></button><button class="button button-primary" data-action="open-agent">' + icon("sparkles", 16) + '<span>和 Agent 校准方案</span></button>'
     ));
+    if (!state.onboardingComplete) {
+      html.push(
+        '<section class="onboarding-banner"><div class="onboarding-banner-mark">' + icon("sparkles", 20) + '</div><div><span class="section-kicker">第一次使用</span><h2>用 3 分钟建立你的求职主线。</h2><p>补全背景、方向和现实约束，Agent 会生成第一版计划。也可以先浏览现有示例。</p></div><button class="button button-primary" data-action="start-onboarding">开始个性化' + icon("arrow-right", 15) + '</button></section>'
+      );
+    }
     html.push('<div class="dashboard-grid">');
 
     html.push(
@@ -1067,7 +1076,7 @@
       "个人档案",
       "Agent 对你的理解，应该可检查、可修改。",
       "画像、简历、面试记录与偏好共同构成个性化方案的基础。当前数据仅保存在本机浏览器。",
-      '<button class="button button-secondary" data-action="reset-data">' + icon("trash-2", 15) + '重置演示数据</button><button class="button button-primary" type="submit" form="profile-page-form">' + icon("check", 16) + '保存档案</button>'
+      '<button class="button button-secondary" data-action="download-report">' + icon("download", 15) + '导出档案</button><button class="button button-secondary" data-action="reset-data">' + icon("trash-2", 15) + '重置数据</button><button class="button button-primary" type="submit" form="profile-page-form">' + icon("check", 16) + '保存档案</button>'
     ));
     html.push('<div class="profile-layout">');
     html.push(
@@ -1136,6 +1145,88 @@
       '<div class="modal-note">' + icon("brain-circuit", 16) + '<span>保存后，Agent 会在下一轮对话中使用新的背景与约束。</span></div>' +
       '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存并校准方案</button></div></form>';
     openModal(content, { title: "更新个人画像", kicker: "Agent 上下文", label: "更新个人画像", className: "modal-wide" });
+  }
+
+  function onboardingDraftValues() {
+    return Object.assign({}, state.profile, ui.onboardingDraft || {});
+  }
+
+  function onboardingStepContent(step, draft) {
+    if (step === 0) {
+      return (
+        '<div class="onboarding-step-copy"><span class="section-kicker">01 · 关于你</span><h3>先建立可信的候选人画像。</h3><p>这些信息只保存在当前浏览器，用来调整岗位、任务和表达方式。</p></div>' +
+        '<div class="form-grid"><label class="field"><span>姓名 / 称呼</span><input name="name" value="' + escapeHTML(draft.name || "") + '" required autofocus /></label>' +
+        '<label class="field"><span>毕业年份</span><select name="gradYear"><option ' + (draft.gradYear === "2026" ? "selected" : "") + '>2026</option><option ' + (draft.gradYear === "2027" ? "selected" : "") + '>2027</option><option ' + (draft.gradYear === "2028" ? "selected" : "") + '>2028</option></select></label>' +
+        '<label class="field"><span>学校</span><input name="school" value="' + escapeHTML(draft.school || "") + '" placeholder="可填写简称" /></label>' +
+        '<label class="field"><span>专业</span><input name="major" value="' + escapeHTML(draft.major || "") + '" placeholder="例如：信息管理" /></label></div>'
+      );
+    }
+    if (step === 1) {
+      return (
+        '<div class="onboarding-step-copy"><span class="section-kicker">02 · 去哪里</span><h3>先选择值得验证的方向，而不是承诺一生。</h3><p>Agent 会把方向当作假设，用岗位样本和你的证据逐步校准。</p></div>' +
+        '<div class="form-grid"><label class="field"><span>目标方向</span><input name="targetTrack" value="' + escapeHTML(draft.targetTrack || "") + '" placeholder="产品 / 数据 / 运营" required /></label>' +
+        '<label class="field"><span>目标行业</span><input name="targetCompany" value="' + escapeHTML(draft.targetCompany || "") + '" placeholder="互联网、SaaS、消费科技..." /></label>' +
+        '<label class="field"><span>目标城市</span><input name="cities" value="' + escapeHTML(draft.cities || "") + '" placeholder="上海、杭州" /></label>' +
+        '<label class="field"><span>每周可投入小时</span><input name="weeklyHours" type="number" min="1" max="60" value="' + escapeHTML(draft.weeklyHours || 10) + '" /></label></div>'
+      );
+    }
+    return (
+      '<div class="onboarding-step-copy"><span class="section-kicker">03 · 现实条件</span><h3>最后，让计划适配你的真实生活。</h3><p>可投入时间、已有经历和限制同样重要。Agent 不会用理想状态替你排计划。</p></div>' +
+      '<div class="form-grid"><label class="field field-wide"><span>现有经历水平</span><input name="experienceLevel" value="' + escapeHTML(draft.experienceLevel || "") + '" placeholder="例如：1 段校园项目、暂无实习" /></label>' +
+      '<label class="field field-wide"><span>最强能力</span><input name="strongest" value="' + escapeHTML(draft.strongest || "") + '" placeholder="例如：用户研究、数据分析、沟通" /></label>' +
+      '<label class="field field-wide"><span>现实约束</span><textarea name="constraints" rows="3" placeholder="课程、毕设、实习、地域、时间或其他限制">' + escapeHTML(draft.constraints || "") + '</textarea></label></div>' +
+      '<div class="onboarding-preview"><span class="section-kicker">你的初始主线</span><div><strong>' + escapeHTML(draft.targetTrack || "待确定方向") + '</strong><span>' + escapeHTML(draft.gradYear || "") + ' 届 · ' + escapeHTML(draft.cities || "城市待定") + ' · ' + escapeHTML(draft.weeklyHours || 10) + 'h/周</span></div><p>完成后会生成第一版 7 天行动计划，之后可以随时让 Agent 重排。</p></div>'
+    );
+  }
+
+  function openOnboardingModal(step) {
+    ui.onboardingStep = clamp(Number(step) || 0, 0, 2);
+    const draft = onboardingDraftValues();
+    const progress = [0, 1, 2].map((index) => '<span class="' + (index <= ui.onboardingStep ? "is-active" : "") + '"></span>').join("");
+    const actionButtons =
+      '<div class="onboarding-actions">' +
+      '<button type="button" class="text-button" data-action="onboarding-demo">先浏览示例</button>' +
+      '<div>' + (ui.onboardingStep > 0 ? '<button type="button" class="button button-secondary" data-action="onboarding-back">上一步</button>' : "") +
+      '<button type="submit" class="button button-primary">' + (ui.onboardingStep === 2 ? icon("sparkles", 16) + "生成我的求职方案" : "下一步" + icon("arrow-right", 15)) + '</button></div></div>';
+    const content =
+      '<form id="onboarding-form" class="modal-form onboarding-form" data-step="' + ui.onboardingStep + '">' +
+      '<div class="onboarding-progress"><div>' + progress + '</div><span>第 ' + (ui.onboardingStep + 1) + ' / 3 步</span></div>' +
+      onboardingStepContent(ui.onboardingStep, draft) +
+      actionButtons + '</form>';
+    openModal(content, { title: "建立你的求职主线", kicker: "首次设置", label: "求职引导", className: "modal-wide onboarding-modal" });
+  }
+
+  function captureOnboardingDraft(form) {
+    if (!form) return;
+    const data = new FormData(form);
+    const draft = Object.assign({}, ui.onboardingDraft || {});
+    ["name", "gradYear", "school", "major", "targetTrack", "targetCompany", "cities", "weeklyHours", "experienceLevel", "strongest", "constraints"].forEach((key) => {
+      if (data.has(key)) draft[key] = data.get(key);
+    });
+    if (draft.weeklyHours) draft.weeklyHours = clamp(Number(draft.weeklyHours) || 10, 1, 60);
+    ui.onboardingDraft = draft;
+  }
+
+  function completeOnboarding(form) {
+    captureOnboardingDraft(form);
+    state.profile = Object.assign({}, state.profile, ui.onboardingDraft || {});
+    state.onboardingComplete = true;
+    const plan = generatePlan(state.profile, state.tasks);
+    state.tasks = plan.tasks;
+    state.planVersion = (state.planVersion || 1) + 1;
+    state.messages.push({
+      role: "assistant",
+      text: "画像已经建立。我先根据你每周 " + state.profile.weeklyHours + " 小时的投入，把第一版行动方案压缩到最关键的几步。\n\n先去证据库补一条最有岗位相关性的经历，再开始简历诊断。",
+      time: nowTime(),
+      actions: [{ label: "完善证据库", view: "evidence" }, { label: "查看行动计划", view: "plan" }]
+    });
+    ui.onboardingStep = 0;
+    ui.onboardingDraft = null;
+    ui.view = "dashboard";
+    saveState();
+    closeModal();
+    render();
+    showToast("你的个性化求职主线已生成");
   }
 
   function openLlmSettingsModal() {
@@ -1508,6 +1599,87 @@
     showToast("本周计划已导出");
   }
 
+  function exportCareerReport() {
+    const readiness = getReadiness();
+    const evidence = Array.isArray(state.evidence) ? state.evidence : [];
+    const applications = Array.isArray(state.applications) ? state.applications : [];
+    const lines = [
+      "# 职途 Career OS 求职档案",
+      "",
+      "导出时间：" + new Date().toLocaleString("zh-CN"),
+      "",
+      "## 候选人画像",
+      "",
+      "- 姓名：" + state.profile.name,
+      "- 学校：" + state.profile.school,
+      "- 专业：" + state.profile.major,
+      "- 毕业年份：" + state.profile.gradYear,
+      "- 目标方向：" + state.profile.targetTrack,
+      "- 目标行业：" + state.profile.targetCompany,
+      "- 目标城市：" + state.profile.cities,
+      "- 每周投入：" + state.profile.weeklyHours + " 小时",
+      "- 现实约束：" + (state.profile.constraints || "未填写"),
+      "",
+      "## 求职就绪度",
+      "",
+      "- 综合：" + readiness.total + "/100",
+      "- 方向定位：" + readiness.positioning,
+      "- 简历材料：" + readiness.resume,
+      "- 面试准备：" + readiness.interview,
+      "- 投递反馈：" + readiness.pipeline,
+      "",
+      "## 证据库",
+      ""
+    ];
+    evidence.forEach((item, index) => {
+      lines.push("### " + (index + 1) + ". " + item.title);
+      lines.push("");
+      lines.push("- 类型：" + item.type);
+      lines.push("- 角色：" + item.role);
+      lines.push("- 时间：" + item.period);
+      lines.push("- 证据强度：" + item.confidence);
+      lines.push("- 情境：" + item.situation);
+      lines.push("- 行动：" + item.action);
+      lines.push("- 结果：" + item.result);
+      lines.push("- 指标：" + ((item.metrics || []).join("、") || "未填写"));
+      lines.push("- 能力：" + ((item.skills || []).join("、") || "未填写"));
+      lines.push("");
+    });
+    lines.push("## 投递看板", "");
+    applications.forEach((item, index) => {
+      lines.push("### " + (index + 1) + ". " + item.company + " · " + item.role);
+      lines.push("");
+      lines.push("- 阶段：" + pipelineStage(item.stage).label);
+      lines.push("- 城市：" + item.city);
+      lines.push("- 来源：" + item.source);
+      lines.push("- 匹配度：" + item.fit);
+      lines.push("- 下一步：" + (item.nextAction || "未设置"));
+      lines.push("- 反馈：" + (item.feedback || "尚未记录"));
+      lines.push("");
+    });
+    lines.push("## 本周行动", "");
+    state.tasks.forEach((task) => {
+      lines.push("- [" + (task.done ? "x" : " ") + "] " + task.day + " · " + task.title + "（" + task.duration + " 分钟）");
+    });
+    lines.push("");
+    lines.push("## 面试训练", "");
+    lines.push("- 完成回答：" + state.interview.history.length);
+    lines.push("- 当前平均分：" + (state.interview.score || 0));
+    lines.push("");
+    lines.push("---");
+    lines.push("由职途 Career OS 导出。模型建议不能替代用户对事实真实性的确认。");
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "职途_求职档案_" + new Date().toISOString().slice(0, 10) + ".md";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    showToast("求职档案已导出");
+  }
+
   function showResetConfirm() {
     const content =
       '<div class="danger-panel">' + icon("triangle-alert", 22) + '<div><h3>重置所有本地数据？</h3><p>画像、任务完成状态、简历与面试记录都会恢复到演示初始状态，操作不可撤销。</p></div></div>' +
@@ -1525,6 +1697,7 @@
     saveState();
     closeModal();
     render();
+    window.setTimeout(() => openOnboardingModal(0), 250);
     showToast("演示数据已重置");
   }
 
@@ -1624,6 +1797,21 @@
         ui.sidebarOpen = false;
         closeModal();
         renderShell();
+      } else if (action === "start-onboarding") {
+        ui.onboardingDraft = Object.assign({}, state.profile);
+        openOnboardingModal(0);
+      } else if (action === "onboarding-back") {
+        captureOnboardingDraft(document.getElementById("onboarding-form"));
+        openOnboardingModal(Math.max(0, ui.onboardingStep - 1));
+      } else if (action === "onboarding-demo") {
+        state.onboardingComplete = true;
+        ui.onboardingDraft = null;
+        saveState();
+        closeModal();
+        render();
+        showToast("已进入示例模式，可随时从工作台重新开始引导");
+      } else if (action === "download-report") {
+        exportCareerReport();
       } else if (action === "open-profile") {
         openProfileModal();
       } else if (action === "show-skills") {
@@ -1762,6 +1950,13 @@
       return;
     }
     event.preventDefault();
+    if (form.id === "onboarding-form") {
+      const step = Number(form.getAttribute("data-step")) || 0;
+      captureOnboardingDraft(form);
+      if (step < 2) openOnboardingModal(step + 1);
+      else completeOnboarding(form);
+      return;
+    }
     if (form.id === "profile-form" || form.id === "profile-page-form") {
       saveProfile(form);
     } else if (form.id === "resume-form") {
@@ -1926,8 +2121,10 @@
         return false;
       }
     })();
-    if (!hadStoredData) {
-      window.setTimeout(() => showToast("这是可交互示例。点击“调整画像”即可开始个人化。"), 800);
+    if (!hadStoredData && !state.onboardingComplete) {
+      window.setTimeout(() => openOnboardingModal(0), 500);
+    } else if (!hadStoredData) {
+      window.setTimeout(() => showToast("这是可交互示例。点击“调整画像”即可开始个性化。"), 800);
     }
   }
 
@@ -1938,7 +2135,7 @@
     generatePlan: generatePlan,
     scoreResume: scoreResume,
     render: render,
-    version: "0.4.0",
+    version: "0.5.0",
   });
 
   init();
