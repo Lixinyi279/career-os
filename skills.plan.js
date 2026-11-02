@@ -14,7 +14,8 @@
 
     match(message) {
       const applicationContext = /投递|申请|流程|反馈|offer|笔试|测评|内推/i.test(message);
-      if (applicationContext && !/本周计划|时间安排|任务/.test(message)) return false;
+      const evidenceContext = /证据|补证|素材库|事实库|证据审计/i.test(message);
+      if ((applicationContext || evidenceContext) && !/本周计划|时间安排|任务/.test(message)) return false;
       return /计划|安排|时间|本周|任务|截止|优先级|忙/.test(message) || (/复盘/.test(message) && /计划|本周|任务|进度/.test(message));
     },
 

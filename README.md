@@ -11,6 +11,7 @@ GitHub: https://github.com/Lixinyi279/career-os
 - 职业方向匹配与目标岗位锁定
 - 简历诊断、JD 对比与 Fact-Lock 改写
 - STAR 经历教练
+- 证据库与 Fact-Lock 证据审计
 - 投递看板、阶段推进与反馈记录
 - 投递转化率与停滞流程复盘
 - 行为面、案例面、压力面训练
@@ -110,6 +111,7 @@ Skill 统一通过 context.llm.complete 调用模型：
       skills.rewrite.js
       skills.star.js
       skills.pipeline.js
+      skills.evidence.js
       skills/
         manifest.schema.json
         _template.skill.js
@@ -117,6 +119,7 @@ Skill 统一通过 context.llm.complete 调用模型：
         server.test.js
         model-gateway.test.js
         pipeline.test.js
+        evidence.test.js
       docs/
         LLM_GATEWAY.md
       ARCHITECTURE.md
@@ -166,3 +169,12 @@ Skill 统一通过 context.llm.complete 调用模型：
 - 看板展示响应率、反馈样本和最近行动
 - 投递复盘 Skill 会识别停滞流程，并优先处理最近截止项
 - 求职就绪度开始纳入投递进展与反馈样本
+
+## v0.4 证据库
+
+- 项目、课程、实习和校园经历统一沉淀为 EvidenceItem
+- 每条证据记录情境、行动、结果、量化指标、能力标签与置信度
+- 简历改写、STAR 训练和面试准备共享同一事实源
+- evidence-coach Skill 会检查缺指标、缺结果和低置信度证据
+- 支持从证据审计直接生成补证任务
+- Fact-Lock 原则：没有真实数据就保留空白，不把模型猜测写成事实

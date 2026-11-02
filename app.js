@@ -104,6 +104,7 @@
     dashboard: { root: "工作台", current: "今日推进" },
     positioning: { root: "方向定位", current: "目标与证据" },
     resume: { root: "简历工坊", current: "诊断与改写" },
+    evidence: { root: "证据库", current: "事实与素材" },
     pipeline: { root: "投递看板", current: "进程与反馈" },
     interview: { root: "模拟面试", current: "训练与反馈" },
     plan: { root: "行动计划", current: "本周主线" },
@@ -181,6 +182,12 @@
         { id: "app-3", company: "北辰互动", role: "用户运营", city: "上海", stage: "applied", source: "内推", appliedAt: "2026-10-31", nextAction: "跟进内推状态", nextAt: "2026-11-05", fit: 75, notes: "内推人建议突出社群运营与用户访谈。", feedback: "", createdAt: "2026-10-31T03:00:00.000Z", updatedAt: "2026-10-31T03:00:00.000Z" },
         { id: "app-4", company: "远山咨询", role: "研究助理", city: "远程", stage: "closed", source: "招聘平台", appliedAt: "2026-10-14", nextAction: "归档复盘", nextAt: "", fit: 58, notes: "岗位要求定量研究深度高于当前证据。", feedback: "简历未通过：研究方法和统计项目需要更具体。", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-23T07:30:00.000Z" }
       ],
+      evidence: [
+        { id: "evidence-1", title: "校园二手交易平台", type: "项目", role: "产品负责人", period: "2026.03 - 2026.06", situation: "校内二手交易信息分散在多个社群，发布、检索和信任判断成本都很高。", action: "访谈 18 位目标用户，砍掉两个低优先级功能，设计商品分类和信用评价机制，并组织 4 人团队完成一期上线。", result: "上线 6 周获得 1,200 名注册用户，日活约 180 人，核心发布流程完成率高于旧表单方案。", metrics: ["1,200 注册用户", "180 日活", "4 人团队"], skills: ["用户研究", "需求分析", "项目推动"], confidence: 84, updatedAt: "2026-10-30T12:00:00.000Z" },
+        { id: "evidence-2", title: "评论数据主题分析", type: "课程项目", role: "核心成员", period: "2025.09 - 2025.12", situation: "课程要求从公开评论中识别用户关注点，并输出可解释的分析结论。", action: "使用 Python 清洗 3 万条评论，完成主题聚类、词频分析和可视化，并在展示前与两位同学交叉校验标签。", result: "提炼 5 类用户关注点，项目展示获得小组第一名。", metrics: ["3 万条数据", "5 类主题", "小组第一"], skills: ["Python", "数据分析", "可视化"], confidence: 76, updatedAt: "2026-10-28T08:30:00.000Z" },
+        { id: "evidence-3", title: "校园公众号内容运营", type: "校园经历", role: "内容策划", period: "2024.09 - 2025.06", situation: "部门公众号阅读量不稳定，选题依赖临时讨论，缺少固定复盘。", action: "负责选题、采访、排版和发布节奏，整理高阅读内容共性，并尝试固定栏目。", result: "累计发布 30 篇推文，单篇最高阅读量 4,600。", metrics: ["30 篇推文", "最高阅读 4,600"], skills: ["内容运营", "选题策划", "编辑排版"], confidence: 68, updatedAt: "2026-10-25T06:10:00.000Z" },
+        { id: "evidence-4", title: "学生会活动统筹", type: "校园经历", role: "项目成员", period: "2024.03 - 2024.05", situation: "需要在有限预算下组织跨院系活动，并协调宣传、场地和志愿者。", action: "拆分任务和截止时间，维护共享进度表，处理场地变更和物料延迟。", result: "活动按计划完成，现场参与约 260 人。", metrics: ["260 人参与", "跨院系协作"], skills: ["项目协调", "沟通", "执行"], confidence: 61, updatedAt: "2026-10-24T09:00:00.000Z" }
+      ],
       roles: [
         { id: "product-ops", title: "产品运营", track: "互联网 / SaaS", fit: 84, salary: "14-22K", status: "主攻", selected: true, why: "项目经历与用户研究能力可直接迁移，岗位样本多，适合作为秋招主线。", gaps: ["指标体系", "A/B 实验"] },
         { id: "data-product", title: "数据产品", track: "企业服务 / 消费科技", fit: 79, salary: "16-24K", status: "第二方向", selected: false, why: "信息管理背景与 SQL 能力匹配，但需要补一个完整的数据产品案例。", gaps: ["需求抽象", "数据建模"] },
@@ -239,6 +246,7 @@
     state.tasks = Array.isArray(saved.tasks) && saved.tasks.length ? saved.tasks : fresh.tasks;
     state.roles = Array.isArray(saved.roles) && saved.roles.length ? saved.roles : fresh.roles;
     state.applications = Array.isArray(saved.applications) ? saved.applications : fresh.applications;
+    state.evidence = Array.isArray(saved.evidence) ? saved.evidence : fresh.evidence;
     state.messages = Array.isArray(saved.messages) ? saved.messages : fresh.messages;
     state.memory = Array.isArray(saved.memory) ? saved.memory : fresh.memory;
     state.suggestions = Array.isArray(saved.suggestions) ? saved.suggestions : fresh.suggestions;
@@ -298,7 +306,10 @@
   function getReadiness() {
     const completeness = profileCompleteness(state.profile);
     const selectedRole = state.roles.some((role) => role.selected);
-    const positioning = Math.min(92, Math.round(38 + completeness * 0.42 + (selectedRole ? 8 : 0)));
+    const evidence = Array.isArray(state.evidence) ? state.evidence : [];
+    const evidenceQuality = evidence.length ? evidence.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / evidence.length : 0;
+    const evidenceCoverage = Math.min(12, evidence.length * 2.5);
+    const positioning = Math.min(94, Math.round(30 + completeness * 0.3 + (selectedRole ? 6 : 0) + evidenceQuality * 0.15 + evidenceCoverage));
     const resume = Math.max(20, Math.min(94, state.resume.score || 34));
     const interview = Math.max(18, Math.min(92, state.interview.score || 28));
     const applications = Array.isArray(state.applications) ? state.applications : [];
@@ -368,6 +379,7 @@
     $("#sidebar-completeness").textContent = readiness.completeness + "%";
     $("#resume-nav-count").textContent = String(state.resume.score || 0);
     $("#pipeline-nav-count").textContent = String((state.applications || []).filter((item) => item.stage !== "closed").length);
+    $("#evidence-nav-count").textContent = String((state.evidence || []).length);
     $("#agent-context-title").textContent = state.profile.gradYear + " 届 · " + state.profile.targetTrack;
     $("#agent-context-completeness").textContent = "画像 " + readiness.completeness + "%";
     $("#agent-context-hours").textContent = "本周 " + state.profile.weeklyHours + "h";
@@ -426,6 +438,7 @@
       dashboard: renderDashboard,
       positioning: renderPositioning,
       resume: renderResume,
+      evidence: renderEvidence,
       pipeline: renderPipeline,
       interview: renderInterview,
       plan: renderPlan,
@@ -658,6 +671,75 @@
     );
   }
 
+  function evidenceTypeClass(type) {
+    if (type === "项目") return "green";
+    if (type === "课程项目") return "blue";
+    if (type === "实习") return "orange";
+    return "violet";
+  }
+
+  function renderEvidenceCard(item) {
+    const confidence = Math.max(0, Math.min(100, Number(item.confidence || 0)));
+    const metrics = Array.isArray(item.metrics) ? item.metrics : [];
+    const skills = Array.isArray(item.skills) ? item.skills : [];
+    return (
+      '<article class="evidence-card">' +
+      '<div class="evidence-card-head"><div class="evidence-title-row"><span class="evidence-type type-' + evidenceTypeClass(item.type) + '">' + escapeHTML(item.type || "经历") + '</span><div><h3>' + escapeHTML(item.title) + '</h3><p>' + escapeHTML(item.role || "角色未填") + '<span>·</span>' + escapeHTML(item.period || "时间未填") + '</p></div></div><button class="icon-button soft tiny" data-action="open-evidence" data-evidence-id="' + escapeHTML(item.id) + '" aria-label="编辑证据">' + icon("settings-2", 14) + '</button></div>' +
+      '<div class="evidence-strength"><span>证据强度</span><div class="meter"><i style="width:' + confidence + '%"></i></div><b>' + confidence + '</b></div>' +
+      '<div class="evidence-story">' +
+      '<div><span>情境</span><p>' + escapeHTML(item.situation || "待补充背景") + '</p></div>' +
+      '<div><span>行动</span><p>' + escapeHTML(item.action || "待补充你的关键动作") + '</p></div>' +
+      '<div class="result-section"><span>结果</span><p>' + escapeHTML(item.result || "待补充可验证结果") + '</p></div>' +
+      '</div>' +
+      '<div class="evidence-tags">' + metrics.map((metric) => '<span class="metric-chip">' + escapeHTML(metric) + '</span>').join("") + skills.map((skill) => '<span class="skill-chip">' + escapeHTML(skill) + '</span>').join("") + '</div>' +
+      '<div class="evidence-actions"><button class="mini-button" data-prompt="' + escapeHTML("基于证据「" + item.title + "」帮我做一版 STAR 面试回答") + '">用它练 STAR' + icon("arrow-right", 12) + '</button><button class="text-button" data-action="open-evidence" data-evidence-id="' + escapeHTML(item.id) + '">编辑证据</button></div>' +
+      '</article>'
+    );
+  }
+
+  function renderEvidence() {
+    const items = Array.isArray(state.evidence) ? state.evidence : [];
+    const strong = items.filter((item) => Number(item.confidence || 0) >= 75);
+    const weak = items.filter((item) => Number(item.confidence || 0) < 70);
+    const metricCount = items.reduce((sum, item) => sum + (Array.isArray(item.metrics) ? item.metrics.length : 0), 0);
+    const uniqueSkills = Array.from(new Set(items.flatMap((item) => Array.isArray(item.skills) ? item.skills : [])));
+    const average = items.length ? Math.round(items.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / items.length) : 0;
+    const missingMetrics = items.filter((item) => !Array.isArray(item.metrics) || !item.metrics.length);
+    const missingResult = items.filter((item) => !String(item.result || "").trim());
+    const html = [];
+    html.push('<div class="view view-evidence">');
+    html.push(pageHeading(
+      "证据库",
+      "所有建议，都要能追到一条真实事实。",
+      "定位、简历和面试共用同一套证据。Agent 可以重组表达，但不能替你编造项目、数字或结果。",
+      '<button class="button button-secondary" data-prompt="审计我的证据库，告诉我最缺什么">' + icon("sparkles", 16) + '让 Agent 审计</button><button class="button button-primary" data-action="open-evidence">' + icon("plus", 16) + '新增证据</button>'
+    ));
+    html.push(
+      '<div class="evidence-summary">' +
+      '<div class="evidence-stat"><span>证据条目</span><strong>' + items.length + '</strong><small>来源可追溯</small></div>' +
+      '<div class="evidence-stat"><span>强证据</span><strong>' + strong.length + '</strong><small>置信度 ≥ 75</small></div>' +
+      '<div class="evidence-stat"><span>量化指标</span><strong>' + metricCount + '</strong><small>数字与变化</small></div>' +
+      '<div class="evidence-stat"><span>能力标签</span><strong>' + uniqueSkills.length + '</strong><small>可迁移素材</small></div>' +
+      '<div class="evidence-stat highlight"><span>平均强度</span><strong>' + average + '</strong><small>持续补证</small></div>' +
+      '</div>'
+    );
+    html.push('<div class="evidence-layout">');
+    html.push(
+      '<section class="evidence-list-card card"><div class="card-heading"><div><span class="section-kicker">Evidence Vault</span><h3>你的真实素材</h3></div><span class="tag tag-neutral">' + items.length + ' 条</span></div><div class="evidence-list">' +
+      (items.length ? items.map(renderEvidenceCard).join("") : '<div class="empty-state"><span>' + icon("bookmark", 28) + '</span><p>还没有证据条目</p><button class="button button-primary" data-action="open-evidence">添加第一条经历</button></div>') +
+      '</div></section>'
+    );
+    html.push(
+      '<aside class="evidence-sidebar">' +
+      '<section class="card evidence-audit-card"><div class="card-heading"><div><span class="section-kicker">审计结果</span><h3>证据结构是否够用</h3></div></div><div class="audit-score"><strong>' + average + '</strong><span>/ 100</span></div><div class="meter-list compact"><div class="meter-row"><span>事实完整</span><div class="meter"><i style="width:' + Math.min(94, 35 + items.length * 10) + '%"></i></div><b>' + Math.min(94, 35 + items.length * 10) + '</b></div><div class="meter-row"><span>结果量化</span><div class="meter"><i class="orange" style="width:' + Math.min(94, 28 + metricCount * 7) + '%"></i></div><b>' + Math.min(94, 28 + metricCount * 7) + '</b></div><div class="meter-row"><span>岗位相关</span><div class="meter"><i class="blue" style="width:' + Math.min(94, 32 + uniqueSkills.length * 5) + '%"></i></div><b>' + Math.min(94, 32 + uniqueSkills.length * 5) + '</b></div></div></section>' +
+      '<section class="card evidence-gaps-card"><div class="card-heading"><div><span class="section-kicker">优先补证</span><h3>下一步问什么</h3></div><span class="tag tag-orange">' + (missingMetrics.length + missingResult.length || 0) + '</span></div><ol class="evidence-questions"><li><span>01</span><p><strong>业务结果</strong>核心项目的转化率、留存或效率变化是多少？</p></li><li><span>02</span><p><strong>决策过程</strong>你是否比较过方案，为什么选最终版本？</p></li><li><span>03</span><p><strong>个人贡献</strong>去掉团队其他人后，哪些结果由你直接推动？</p></li></ol><button class="button button-secondary button-wide" data-action="evidence-to-plan">' + icon("calendar-check", 15) + '把补证任务写进计划</button></section>' +
+      '<section class="card evidence-rule-card">' + icon("shield-check", 20) + '<div><strong>Fact-Lock 规则</strong><p>简历改写和面试回答只能使用证据库中出现过的事实。没有数据就保留空白，不把猜测写成结果。</p></div></section>' +
+      '</aside>'
+    );
+    html.push('</div></div>');
+    return html.join("");
+  }
+
   function renderPipeline() {
     const apps = Array.isArray(state.applications) ? state.applications : [];
     const active = apps.filter((item) => item.stage !== "closed");
@@ -748,7 +830,7 @@
     );
     html.push(
       '<section class="card strengths-card">' +
-      '<div class="card-heading"><div><span class="section-kicker">可迁移优势</span><h3>你已经有什么</h3></div><span class="tag tag-green">3 类证据</span></div>' +
+      '<div class="card-heading"><div><span class="section-kicker">可迁移优势</span><h3>你已经有什么</h3></div><button class="text-button" data-view="evidence">管理证据库' + icon("arrow-right", 14) + '</button></div>' +
       '<div class="strength-list">' +
       '<div><span class="strength-icon">' + icon("message-square", 18) + '</span><div><strong>用户研究</strong><p>有访谈、竞品观察与需求归纳的实际经验，能快速把模糊反馈转成问题定义。</p></div></div>' +
       '<div><span class="strength-icon warm">' + icon("target", 18) + '</span><div><strong>项目推动</strong><p>从需求到上线完整参与过校园产品，理解跨角色协作的基本节奏。</p></div></div>' +
@@ -1094,6 +1176,32 @@
       });
     }
     window.CareerOS.llm.refreshServerStatus(true).then(() => renderModelStatus());
+  }
+
+  function openEvidenceModal(evidenceId) {
+    const existing = (state.evidence || []).find((item) => item.id === evidenceId) || null;
+    const typeOptions = ["项目", "课程项目", "实习", "校园经历", "其他"].map((type) => '<option' + ((existing ? existing.type : "项目") === type ? " selected" : "") + '>' + type + '</option>').join("");
+    const content =
+      '<form id="evidence-form" class="modal-form">' +
+      '<input type="hidden" name="evidenceId" value="' + escapeHTML(existing ? existing.id : "") + '" />' +
+      '<div class="form-grid">' +
+      '<label class="field"><span>证据名称</span><input name="title" value="' + escapeHTML(existing ? existing.title : "") + '" placeholder="例如：校园二手交易平台" required /></label>' +
+      '<label class="field"><span>类型</span><select name="type">' + typeOptions + '</select></label>' +
+      '<label class="field"><span>你的角色</span><input name="role" value="' + escapeHTML(existing ? existing.role : "") + '" placeholder="产品负责人 / 核心成员" /></label>' +
+      '<label class="field"><span>时间</span><input name="period" value="' + escapeHTML(existing ? existing.period : "") + '" placeholder="2026.03 - 2026.06" /></label>' +
+      '<fieldset class="field field-wide star-editor"><legend>事实结构</legend>' +
+      '<label><span>S 情境</span><textarea name="situation" rows="2" placeholder="当时的背景、约束和挑战">' + escapeHTML(existing ? existing.situation : "") + '</textarea></label>' +
+      '<label><span>A 行动</span><textarea name="action" rows="3" placeholder="你做了哪些关键判断和动作">' + escapeHTML(existing ? existing.action : "") + '</textarea></label>' +
+      '<label><span>R 结果</span><textarea name="result" rows="2" placeholder="结果是什么，尽量使用可验证事实">' + escapeHTML(existing ? existing.result : "") + '</textarea></label>' +
+      '</fieldset>' +
+      '<label class="field"><span>量化指标</span><input name="metrics" value="' + escapeHTML(existing && Array.isArray(existing.metrics) ? existing.metrics.join("、") : "") + '" placeholder="用逗号或顿号分隔" /></label>' +
+      '<label class="field"><span>能力标签</span><input name="skills" value="' + escapeHTML(existing && Array.isArray(existing.skills) ? existing.skills.join("、") : "") + '" placeholder="用户研究、数据分析" /></label>' +
+      '<label class="field"><span>证据强度 0-100</span><input name="confidence" type="number" min="0" max="100" value="' + Number(existing ? existing.confidence : 70) + '" /></label>' +
+      '</div>' +
+      '<div class="modal-actions">' +
+      (existing ? '<button type="button" class="button button-secondary button-danger-ghost" data-action="delete-evidence" data-evidence-id="' + escapeHTML(existing.id) + '">删除证据</button>' : "") +
+      '<button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存证据</button></div></form>';
+    openModal(content, { title: existing ? "更新证据" : "新增一条证据", kicker: "Evidence Vault", label: "证据条目", className: "modal-wide" });
   }
 
   function openApplicationModal(applicationId) {
@@ -1541,6 +1649,24 @@
         }
       } else if (action === "close-modal") {
         closeModal();
+      } else if (action === "open-evidence") {
+        openEvidenceModal(actionNode.getAttribute("data-evidence-id") || "");
+      } else if (action === "delete-evidence") {
+        const evidenceId = actionNode.getAttribute("data-evidence-id");
+        const item = (state.evidence || []).find((evidence) => evidence.id === evidenceId);
+        if (item && window.confirm("确定删除证据「" + item.title + "」？")) {
+          state.evidence = state.evidence.filter((evidence) => evidence.id !== evidenceId);
+          saveState();
+          closeModal();
+          render();
+          showToast("证据条目已删除");
+        }
+      } else if (action === "evidence-to-plan") {
+        addTasksFromGaps([
+          { title: "补齐核心证据的业务结果", detail: "为每条强证据补充转化率、留存、效率或质量变化，没有数据就标注待验证。", category: "resume", duration: 30 },
+          { title: "追问一项关键决策过程", detail: "记录你比较过哪些方案、依据是什么、最后为什么这样选。", category: "review", duration: 20 },
+          { title: "把证据改写为 STAR 故事", detail: "选择一条岗位最相关的经历，按情境、任务、行动、结果整理 2 分钟版本。", category: "interview", duration: 25 }
+        ]);
       } else if (action === "open-application") {
         openApplicationModal(actionNode.getAttribute("data-application-id") || "");
       } else if (action === "advance-application") {
@@ -1657,6 +1783,33 @@
       ui.view = "plan";
       render();
       showToast("新任务已加入本周计划");
+    } else if (form.id === "evidence-form") {
+      const data = new FormData(form);
+      const evidenceId = String(data.get("evidenceId") || "").trim();
+      const splitTags = (value) => String(value || "").split(/[，,、]/).map((item) => item.trim()).filter(Boolean);
+      const record = {
+        id: evidenceId || makeId("evidence"),
+        title: String(data.get("title") || "").trim(),
+        type: String(data.get("type") || "其他"),
+        role: String(data.get("role") || "").trim(),
+        period: String(data.get("period") || "").trim(),
+        situation: String(data.get("situation") || "").trim(),
+        action: String(data.get("action") || "").trim(),
+        result: String(data.get("result") || "").trim(),
+        metrics: splitTags(data.get("metrics")),
+        skills: splitTags(data.get("skills")),
+        confidence: clamp(Number(data.get("confidence")) || 0, 0, 100),
+        updatedAt: new Date().toISOString(),
+      };
+      state.evidence = Array.isArray(state.evidence) ? state.evidence : [];
+      const existingIndex = state.evidence.findIndex((item) => item.id === evidenceId);
+      if (existingIndex >= 0) state.evidence[existingIndex] = record;
+      else state.evidence.push(record);
+      saveState();
+      closeModal();
+      ui.view = "evidence";
+      render();
+      showToast(evidenceId ? "证据已更新" : "新证据已加入证据库");
     } else if (form.id === "application-form") {
       const data = new FormData(form);
       const applicationId = String(data.get("applicationId") || "").trim();
@@ -1785,7 +1938,7 @@
     generatePlan: generatePlan,
     scoreResume: scoreResume,
     render: render,
-    version: "0.3.0",
+    version: "0.4.0",
   });
 
   init();
