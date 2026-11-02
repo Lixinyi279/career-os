@@ -226,7 +226,7 @@ async function handleApi(req, res, requestId) {
     sendJson(res, 200, {
       ok: true,
       service: "career-os",
-      version: "0.6.0",
+      version: "0.7.0",
       llm: {
         configured: isConfigured(),
         mode: isConfigured() ? "secure-proxy" : "rules",

@@ -151,6 +151,33 @@
     "3. 熟悉 SQL、Excel 或常见分析工具。",
   ].join("\n");
 
+  const defaultResumeVersions = [
+    {
+      id: "resume-v3",
+      name: "产品运营主版本",
+      targetJobId: "job-1",
+      targetLabel: "云帆科技 · 产品运营实习生",
+      text: defaultResume,
+      targetJD: defaultJD,
+      score: 58,
+      dimensions: [{ label: "结构清晰", value: 74 }, { label: "成果量化", value: 46 }, { label: "岗位相关", value: 62 }, { label: "表达密度", value: 51 }],
+      issues: ["项目经历里的职责描述偏多，结果和决策过程偏少。", "目标 JD 中的分析、实验、指标等关键词覆盖不足。", "第一屏没有直接说明求职方向与最强证据。"],
+      updatedAt: "2026-10-30T12:00:00.000Z"
+    },
+    {
+      id: "resume-v2",
+      name: "数据产品探索版",
+      targetJobId: "job-2",
+      targetLabel: "拾光数据 · 数据产品实习生",
+      text: defaultResume,
+      targetJD: "参与数据产品需求分析；使用 SQL 和 Excel 验证数据；理解数据模型与 API；协同研发推动数据平台上线。",
+      score: 52,
+      dimensions: [{ label: "结构清晰", value: 71 }, { label: "成果量化", value: 44 }, { label: "岗位相关", value: 55 }, { label: "表达密度", value: 50 }],
+      issues: ["数据产品关键词不足。", "缺少需求抽象和数据建模案例。", "SQL 项目成果不够具体。"],
+      updatedAt: "2026-10-28T09:00:00.000Z"
+    }
+  ];
+
   function createDefaultState() {
     return {
       version: 3,
@@ -216,6 +243,8 @@
         issues: ["项目经历里的职责描述偏多，结果和决策过程偏少。", "目标 JD 中的分析、实验、指标等关键词覆盖不足。", "第一屏没有直接说明求职方向与最强证据。"],
         lastReviewed: "2026-10-29T10:00:00.000Z",
       },
+      resumeVersions: defaultResumeVersions,
+      activeResumeVersionId: "resume-v3",
       interview: {
         mode: "behavior",
         intensity: "standard",
@@ -249,6 +278,25 @@
     const state = Object.assign({}, fresh, saved);
     state.profile = Object.assign({}, fresh.profile, saved.profile || {});
     state.resume = Object.assign({}, fresh.resume, saved.resume || {});
+    if (Array.isArray(saved.resumeVersions) && saved.resumeVersions.length) {
+      state.resumeVersions = saved.resumeVersions;
+      state.activeResumeVersionId = saved.activeResumeVersionId || saved.resumeVersions[0].id;
+    } else {
+      const migratedId = "resume-migrated";
+      state.resumeVersions = [{
+        id: migratedId,
+        name: "当前简历",
+        targetJobId: "",
+        targetLabel: "通用版本",
+        text: state.resume.text,
+        targetJD: state.resume.targetJD,
+        score: state.resume.score,
+        dimensions: state.resume.dimensions,
+        issues: state.resume.issues,
+        updatedAt: state.resume.lastReviewed || new Date().toISOString(),
+      }];
+      state.activeResumeVersionId = migratedId;
+    }
     state.interview = Object.assign({}, fresh.interview, saved.interview || {});
     state.readiness = Object.assign({}, fresh.readiness, saved.readiness || {});
     state.tasks = Array.isArray(saved.tasks) && saved.tasks.length ? saved.tasks : fresh.tasks;
@@ -731,7 +779,7 @@
       '<div class="job-coverage"><span>JD 证据覆盖</span><div class="meter"><i style="width:' + analysis.coverage + '%"></i></div><b>' + analysis.coverage + '%</b></div>' +
       '<div class="job-keyword-groups"><div><span>已覆盖</span>' + (analysis.matched.length ? analysis.matched.map((item) => '<b class="matched-chip">' + escapeHTML(item) + '</b>').join("") : '<b class="empty-chip">暂无</b>') + '</div><div><span>待补证据</span>' + (analysis.missing.length ? analysis.missing.map((item) => '<b class="missing-chip">' + escapeHTML(item) + '</b>').join("") : '<b class="matched-chip">核心能力已覆盖</b>') + '</div></div>' +
       (analysis.nextActions.length ? '<p class="job-next-action">' + icon("target", 14) + '<span>' + escapeHTML(analysis.nextActions[0]) + '</span></p>' : "") +
-      '<div class="job-card-footer"><span class="job-deadline' + (overdue ? " is-overdue" : "") + '">' + icon("calendar-days", 13) + '截止 ' + deadline + '</span><div><button class="mini-button" data-prompt="' + escapeHTML("分析 " + job.company + " 的 " + job.role + " JD，并告诉我最缺什么证据") + '">问 Agent</button><button class="icon-button soft tiny" data-action="open-job" data-job-id="' + escapeHTML(job.id) + '" aria-label="编辑岗位">' + icon("settings-2", 14) + '</button><button class="mini-button" data-action="job-to-pipeline" data-job-id="' + escapeHTML(job.id) + '">转入投递' + icon("arrow-right", 12) + '</button></div></div>' +
+      '<div class="job-card-footer"><span class="job-deadline' + (overdue ? " is-overdue" : "") + '">' + icon("calendar-days", 13) + '截止 ' + deadline + '</span><div><button class="mini-button" data-prompt="' + escapeHTML("分析 " + job.company + " 的 " + job.role + " JD，并告诉我最缺什么证据") + '">问 Agent</button><button class="icon-button soft tiny" data-action="open-job" data-job-id="' + escapeHTML(job.id) + '" aria-label="编辑岗位">' + icon("settings-2", 14) + '</button><button class="mini-button" data-action="tailor-resume" data-job-id="' + escapeHTML(job.id) + '">定制简历</button><button class="mini-button" data-action="job-to-pipeline" data-job-id="' + escapeHTML(job.id) + '">转入投递' + icon("arrow-right", 12) + '</button></div></div>' +
       '</article>'
     );
   }
@@ -945,6 +993,73 @@
     return html.join("");
   }
 
+  function activeResumeVersion() {
+    return (state.resumeVersions || []).find((version) => version.id === state.activeResumeVersionId) || null;
+  }
+
+  function syncActiveResumeVersion() {
+    const versions = Array.isArray(state.resumeVersions) ? state.resumeVersions : [];
+    const index = versions.findIndex((version) => version.id === state.activeResumeVersionId);
+    if (index < 0) return false;
+    versions[index] = Object.assign({}, versions[index], {
+      text: state.resume.text,
+      targetJD: state.resume.targetJD,
+      score: state.resume.score,
+      dimensions: state.resume.dimensions,
+      issues: state.resume.issues,
+      updatedAt: new Date().toISOString(),
+    });
+    state.resumeVersions = versions;
+    return true;
+  }
+
+  function loadResumeVersion(versionId) {
+    syncActiveResumeVersion();
+    const version = (state.resumeVersions || []).find((item) => item.id === versionId);
+    if (!version) return;
+    state.activeResumeVersionId = version.id;
+    state.resume = Object.assign({}, state.resume, {
+      text: version.text,
+      targetJD: version.targetJD,
+      score: version.score,
+      dimensions: version.dimensions || [],
+      issues: version.issues || [],
+      lastReviewed: version.updatedAt,
+      fileName: version.name + ".txt",
+    });
+    saveState();
+    render();
+    showToast("已切换到「" + version.name + "」");
+  }
+
+  function renderResumeVersionManager() {
+    const versions = Array.isArray(state.resumeVersions) ? state.resumeVersions : [];
+    const active = activeResumeVersion();
+    return (
+      '<section class="card resume-version-manager">' +
+      '<div class="resume-version-head"><div><span class="section-kicker">版本库</span><h3>' + (active ? escapeHTML(active.name) : "未命名版本") + '</h3><p>' + escapeHTML(active ? active.targetLabel : "当前编辑中的简历") + '</p></div><div><button class="text-button" data-action="sync-resume-version">' + icon("check", 14) + '同步当前修改</button><button class="button button-secondary" data-action="open-resume-version">' + icon("plus", 14) + '另存为新版本</button></div></div>' +
+      '<div class="resume-version-list">' + versions.map((version) => (
+        '<button class="resume-version-item' + (version.id === state.activeResumeVersionId ? " is-active" : "") + '" data-action="load-resume-version" data-version-id="' + escapeHTML(version.id) + '">' +
+        '<span class="version-dot"></span><span class="version-copy"><strong>' + escapeHTML(version.name) + '</strong><small>' + escapeHTML(version.targetLabel || "通用版本") + '</small></span><span class="version-score">' + Number(version.score || 0) + '</span>' +
+        '</button>'
+      )).join("") + '</div></section>'
+    );
+  }
+
+  function openResumeVersionModal(presetJobId) {
+    const jobs = (state.jobTargets || []).filter((job) => job.status !== "archived");
+    const jobOptions = '<option value="">通用版本</option>' + jobs.map((job) => '<option value="' + escapeHTML(job.id) + '"' + (presetJobId === job.id ? " selected" : "") + '>' + escapeHTML(job.company + " · " + job.role) + '</option>').join("");
+    const selectedJob = jobs.find((job) => job.id === presetJobId);
+    const defaultName = selectedJob ? selectedJob.company + " · " + selectedJob.role : "通用版 · " + new Date().toISOString().slice(0, 10);
+    const content =
+      '<form id="resume-version-form" class="modal-form">' +
+      '<label class="field"><span>版本名称</span><input name="name" value="' + escapeHTML(defaultName) + '" required /></label>' +
+      '<label class="field"><span>绑定目标岗位</span><select name="targetJobId">' + jobOptions + '</select></label>' +
+      '<div class="modal-note">' + icon("file-text", 16) + '<span>会复制当前简历正文与诊断结果。若选择目标岗位，会自动把该岗位 JD 应用到新版本并重新计算分数。</span></div>' +
+      '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">创建简历版本</button></div></form>';
+    openModal(content, { title: "另存为新版本", kicker: "Resume Versions", label: "简历版本", className: "modal-wide" });
+  }
+
   function renderResume() {
     const resume = state.resume;
     const lastReview = formatDate(resume.lastReviewed);
@@ -956,6 +1071,7 @@
       "结构化检查不是替你编经历，而是把真实做过的事翻译成招聘方能快速判断的证据。",
       '<button class="button button-secondary" data-action="upload-resume">' + icon("upload", 16) + '上传文本简历</button><button class="button button-primary" type="submit" form="resume-form">' + icon("scan-search", 16) + '重新诊断</button>'
     ));
+    html.push(renderResumeVersionManager());
     html.push('<div class="resume-layout">');
     html.push(
       '<section class="card resume-editor-card">' +
@@ -1630,6 +1746,7 @@
     state.resume.dimensions = review.dimensions;
     state.resume.issues = review.issues;
     state.resume.lastReviewed = review.lastReviewed;
+    syncActiveResumeVersion();
     saveState();
     render();
     showToast("诊断完成：简历匹配分 " + review.score + "/100");
@@ -1934,6 +2051,17 @@
         }
       } else if (action === "close-modal") {
         closeModal();
+      } else if (action === "open-resume-version") {
+        openResumeVersionModal();
+      } else if (action === "load-resume-version") {
+        loadResumeVersion(actionNode.getAttribute("data-version-id"));
+      } else if (action === "sync-resume-version") {
+        const synced = syncActiveResumeVersion();
+        saveState();
+        render();
+        showToast(synced ? "当前修改已同步到版本库" : "当前没有可同步的版本");
+      } else if (action === "tailor-resume") {
+        openResumeVersionModal(actionNode.getAttribute("data-job-id") || "");
       } else if (action === "open-job") {
         openJobModal(actionNode.getAttribute("data-job-id") || "");
       } else if (action === "delete-job") {
@@ -2110,6 +2238,35 @@
       ui.view = "plan";
       render();
       showToast("新任务已加入本周计划");
+    } else if (form.id === "resume-version-form") {
+      const data = new FormData(form);
+      const name = String(data.get("name") || "").trim();
+      const targetJobId = String(data.get("targetJobId") || "").trim();
+      const targetJob = (state.jobTargets || []).find((job) => job.id === targetJobId) || null;
+      const targetJD = targetJob ? targetJob.jd : state.resume.targetJD;
+      const review = scoreResume(state.resume.text, targetJD);
+      const versionId = makeId("resume");
+      const version = {
+        id: versionId,
+        name: name || (targetJob ? targetJob.company + " · " + targetJob.role : "简历版本"),
+        targetJobId: targetJobId,
+        targetLabel: targetJob ? targetJob.company + " · " + targetJob.role : "通用版本",
+        text: state.resume.text,
+        targetJD: targetJD,
+        score: review.score,
+        dimensions: review.dimensions,
+        issues: review.issues,
+        updatedAt: new Date().toISOString(),
+      };
+      syncActiveResumeVersion();
+      state.resumeVersions.push(version);
+      state.activeResumeVersionId = versionId;
+      state.resume = Object.assign({}, state.resume, { targetJD: targetJD, score: review.score, dimensions: review.dimensions, issues: review.issues, lastReviewed: review.lastReviewed });
+      saveState();
+      closeModal();
+      ui.view = "resume";
+      render();
+      showToast("已创建简历版本：" + version.name);
     } else if (form.id === "job-form") {
       const data = new FormData(form);
       const jobId = String(data.get("jobId") || "").trim();
@@ -2231,6 +2388,7 @@
       state.resume.dimensions = review.dimensions;
       state.resume.issues = review.issues;
       state.resume.lastReviewed = review.lastReviewed;
+      syncActiveResumeVersion();
       saveState();
       render();
       showToast("已读取 " + file.name + " 并完成诊断");
@@ -2292,8 +2450,11 @@
     getReadiness: getReadiness,
     generatePlan: generatePlan,
     scoreResume: scoreResume,
+    exportCareerReport: exportCareerReport,
+    loadResumeVersion: loadResumeVersion,
+    syncActiveResumeVersion: syncActiveResumeVersion,
     render: render,
-    version: "0.6.0",
+    version: "0.7.0",
   });
 
   init();
