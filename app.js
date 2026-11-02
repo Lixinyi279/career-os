@@ -19,6 +19,7 @@
     "sparkles": '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
     "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     "link-2": '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
+    "server": '<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/> ',
     "brain-circuit": '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17 5v3"/><path d="M7 5v3"/>',
     "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
     "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
@@ -353,6 +354,9 @@
     const meta = VIEW_META[ui.view] || VIEW_META.dashboard;
     $("#breadcrumb-root").textContent = meta.root;
     $("#breadcrumb-current").textContent = meta.current;
+    const skillCount = window.CareerAgent.registry.list().length + 1;
+    $("#skill-status-title").textContent = skillCount + " 个 Skills 在线";
+    renderModelStatus();
 
     $$(".nav-item").forEach((button) => {
       button.classList.toggle("is-active", button.getAttribute("data-view") === ui.view);
@@ -365,8 +369,32 @@
     document.body.classList.toggle("has-overlay", ui.agentOpen || ui.sidebarOpen || Boolean($("#modal-root").innerHTML));
   }
 
+  function renderModelStatus() {
+    const pill = $("#model-mode-pill");
+    if (!pill || !window.CareerOS || !window.CareerOS.llm) return;
+    const status = window.CareerOS.llm.getServerStatus();
+    const cfg = window.CareerOS.llm.getConfig();
+    const direct = Boolean(cfg.apiKey && cfg.baseUrl && cfg.model);
+    let mode = "rules";
+    let label = "本地规则";
+    if (status.llmConfigured) {
+      mode = "server";
+      label = "安全 AI";
+    } else if (direct) {
+      mode = "direct";
+      label = "直连 AI";
+    }
+    pill.className = "model-mode-pill is-" + mode;
+    pill.innerHTML = icon(mode === "rules" ? "brain-circuit" : "sparkles", 14) + "<span>" + label + "</span>";
+    const subtitle = $("#skill-status-subtitle");
+    if (subtitle) {
+      subtitle.textContent = mode === "server" ? "服务端模型网关已连接" : mode === "direct" ? "浏览器临时直连模式" : "规则引擎与本地知识";
+    }
+  }
+
   function render() {
     renderShell();
+
     renderView();
     renderAgent();
     hydrateIcons(document);
@@ -905,19 +933,31 @@
 
   function openLlmSettingsModal() {
     const cfg = window.CareerOS.llm.getConfig();
+    const status = window.CareerOS.llm.getServerStatus();
+    const secure = Boolean(status.llmConfigured);
+    const serverUnavailable = status.checked && !status.available;
     const presetOptions = Object.keys(window.CareerOS.llm.presets).map((key) => {
       const p = window.CareerOS.llm.presets[key];
-      return '<option value="' + key + '">' + escapeHTML(p.label) + '</option>';
+      return '<option value="' + key + '"' + (cfg.preset === key ? " selected" : "") + '>' + escapeHTML(p.label) + '</option>';
     }).join("");
+    const statusCopy = secure
+      ? '<div class="llm-status-card is-secure"><span class="llm-status-icon">' + icon("shield-check", 20) + '</span><div><strong>安全代理已连接</strong><p>API Key 保存在服务端环境变量中，浏览器不会接触密钥。当前模型：' + escapeHTML(status.model || "服务端默认模型") + '</p></div><span class="tag tag-green">推荐</span></div>'
+      : serverUnavailable
+        ? '<div class="llm-status-card"><span class="llm-status-icon">' + icon("info", 20) + '</span><div><strong>当前为静态模式</strong><p>没有检测到本地服务。可在下方临时启用浏览器直连，或运行 node server.js 使用安全代理。</p></div><span class="tag tag-neutral">本地</span></div>'
+        : '<div class="llm-status-card"><span class="llm-status-icon">' + icon("server", 20) + '</span><div><strong>模型服务尚未配置</strong><p>启动服务端并配置 .env 后会自动启用；当前继续使用规则降级。</p></div><span class="tag tag-neutral">未配置</span></div>';
+    const directFields = secure
+      ? '<div class="modal-note">' + icon("lock", 16) + '<span>浏览器直连配置不会覆盖服务端安全代理。推荐始终通过 .env 管理模型密钥。</span></div>'
+      : '<label class="field"><span>模型服务</span><select name="preset" id="llm-preset">' + presetOptions + '</select></label>' +
+        '<label class="field"><span>直连 API Key（仅当前会话）</span><input name="apiKey" type="password" value="' + escapeHTML(cfg.apiKey || "") + '" placeholder="sk-..." autocomplete="off" /></label>' +
+        '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(cfg.baseUrl || "") + '" placeholder="https://api.deepseek.com/v1" /></label>' +
+        '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(cfg.model || "") + '" placeholder="deepseek-chat" /></label>' +
+        '<div class="modal-note">' + icon("triangle-alert", 16) + '<span>直连模式会把请求直接发往模型厂商，仅建议在本地静态体验时使用。Key 只保存在当前标签页的 sessionStorage。</span></div>';
+    const actions = secure
+      ? '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">关闭</button><button type="button" class="button button-primary" data-action="test-llm">测试安全网关</button></div>'
+      : '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="button" class="button button-secondary" data-action="test-llm">测试当前连接</button><button type="submit" class="button button-primary">保存模型设置</button></div>';
     const content =
-      '<form id="llm-form" class="modal-form">' +
-      '<label class="field"><span>模型服务</span><select name="preset" id="llm-preset">' + presetOptions + '</select></label>' +
-      '<label class="field"><span>API Key</span><input name="apiKey" type="password" value="' + escapeHTML(cfg.apiKey || "") + '" placeholder="sk-..." autocomplete="off" /></label>' +
-      '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(cfg.baseUrl || "") + '" placeholder="https://api.deepseek.com/v1" /></label>' +
-      '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(cfg.model || "") + '" placeholder="deepseek-chat" /></label>' +
-      '<div class="modal-note">' + icon("info", 16) + '<span>Key 只存在本机浏览器，不会上传。不填则继续用规则演示模式。</span></div>' +
-      '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存并启用真 AI</button></div></form>';
-    openModal(content, { title: "接入大模型", kicker: "真 AI 引擎", label: "接入大模型" });
+      '<form id="llm-form" class="modal-form">' + statusCopy + directFields + actions + '</form>';
+    openModal(content, { title: "模型网关", kicker: "AI Runtime", label: "模型网关", className: "modal-wide" });
     const preset = document.getElementById("llm-preset");
     if (preset) {
       preset.addEventListener("change", () => {
@@ -928,6 +968,7 @@
         }
       });
     }
+    window.CareerOS.llm.refreshServerStatus(true).then(() => renderModelStatus());
   }
 
   function openTaskModal() {
@@ -1228,7 +1269,7 @@
     showToast("演示数据已重置");
   }
 
-  function handleClick(event) {
+  async function handleClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
@@ -1330,6 +1371,23 @@
         openSkillsModal();
       } else if (action === "open-llm-settings") {
         openLlmSettingsModal();
+      } else if (action === "test-llm") {
+        const original = actionNode.innerHTML;
+        actionNode.disabled = true;
+        actionNode.innerHTML = icon("clock-3", 15) + "<span>测试中...</span>";
+        try {
+          await window.CareerOS.llm.refreshServerStatus(true);
+          const result = await window.CareerOS.llm.createLlmAdapter().test();
+          showToast("模型连接正常：" + String(result.text || "OK").slice(0, 40), "success");
+          renderModelStatus();
+        } catch (error) {
+          const message = String(error.message || error);
+          showToast(message.includes("LLM_NOT_CONFIGURED") ? "尚未配置模型，仍使用本地规则模式" : "模型连接失败：" + message.slice(0, 80), "error");
+        } finally {
+          actionNode.disabled = false;
+          actionNode.innerHTML = original;
+          hydrateIcons(actionNode);
+        }
       } else if (action === "close-modal") {
         closeModal();
       } else if (action === "open-task") {
@@ -1391,7 +1449,7 @@
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     if (form.id === "agent-form") {
@@ -1434,9 +1492,11 @@
         baseUrl: String(data.get("baseUrl") || "").trim(),
         model: String(data.get("model") || "").trim(),
       });
+      await window.CareerOS.llm.refreshServerStatus(true);
       closeModal();
+      render();
       const ok = window.CareerOS.llm.createLlmAdapter().configured();
-      showToast(ok ? "真 AI 已启用" : "已保存，但信息不完整，仍为演示模式");
+      showToast(ok ? "模型网关已启用" : "已保存，但信息不完整，仍为规则模式");
     }
   }
 
@@ -1495,6 +1555,9 @@
     document.addEventListener("keydown", handleKeydown);
     window.addEventListener("beforeunload", saveState);
     render();
+    if (window.CareerOS && window.CareerOS.llm) {
+      window.CareerOS.llm.refreshServerStatus().then(() => renderModelStatus()).catch(() => renderModelStatus());
+    }
     const hadStoredData = (() => {
       try {
         return Boolean(window.localStorage.getItem(STORAGE_KEY));
@@ -1507,15 +1570,15 @@
     }
   }
 
-  window.CareerOS = {
+  window.CareerOS = Object.assign(window.CareerOS || {}, {
     state: state,
     ui: ui,
     getReadiness: getReadiness,
     generatePlan: generatePlan,
     scoreResume: scoreResume,
     render: render,
-    version: "0.1.0",
-  };
+    version: "0.2.0",
+  });
 
   init();
 })();

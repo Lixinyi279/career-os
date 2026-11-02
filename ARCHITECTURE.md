@@ -1,4 +1,4 @@
-# 职途 Career OS 架构 v0.1
+# 职途 Career OS 架构 v0.2
 
 ## 1. 产品判断
 
@@ -22,7 +22,7 @@ DeepTutor 类项目值得借鉴的不是某个页面，而是它的“知识库 
 
 ## 2. 当前交付的 MVP
 
-当前目录是一个零依赖、可直接打开的前端原型，已经有完整产品壳和可交互闭环：
+当前目录包含一个零依赖前端、Node.js 安全模型代理和可交互产品闭环：
 
 - 个人画像编辑与本地持久化
 - 职业方向匹配与目标岗位锁定
@@ -30,11 +30,12 @@ DeepTutor 类项目值得借鉴的不是某个页面，而是它的“知识库 
 - 行为面、业务案例、压力测试三套训练模式
 - 回答评分、即时反馈、训练报告
 - 周计划生成、任务完成、计划导出
-- 通用 Agent 对话、四个专用 Skill 路由、一个兜底对话 Skill
+- 通用 Agent 对话、六个专用 Skill 路由、一个兜底对话 Skill
+- 安全模型网关与浏览器直连降级模式
 - Skill Registry 与权限声明展示
 - 桌面端三栏工作台与移动端响应式布局
 
-当前使用浏览器 localStorage 和本地规则适配器。它用于验证信息架构、交互闭环与 Skill 协议，不代表生产级模型能力。
+当前画像和任务使用浏览器 localStorage；模型调用可走 Node.js 安全代理，也可在静态模式使用会话级浏览器直连。服务端未配置模型时自动降级为规则引擎。
 
 ## 3. 分层架构
 
@@ -71,7 +72,37 @@ DeepTutor 类项目值得借鉴的不是某个页面，而是它的“知识库 
 
 当前 app.js 已实现轻量版本：SkillRegistry、AgentOrchestrator、EventBus 和统一的 Skill 返回协议。
 
-### 3.3 Career Domain Layer
+### 3.3 Model Gateway
+
+Model Gateway 是所有 Skill 访问大模型的唯一入口。
+
+推荐调用：
+
+    const response = await context.llm.complete({
+      system: systemPrompt,
+      user: userPrompt,
+      temperature: 0.2,
+      maxTokens: 1200
+    });
+
+    const text = response.text;
+
+网关负责：
+
+- 选择安全代理或浏览器直连模式
+- 从服务端环境变量读取 API Key
+- 对输入长度、temperature、maxTokens 做校验
+- 对限流、超时、上游错误做归一化
+- 记录 requestId，但不持久化完整求职材料
+- 在模型不可用时明确返回错误，由 Skill 决定规则降级
+
+安全代理模式：
+
+    Browser -> /api/llm/complete -> server.js -> OpenAI-compatible provider
+
+浏览器直连模式只用于直接打开 index.html 的体验场景。直连 Key 只进入 sessionStorage，刷新页面后失效。
+
+### 3.4 Career Domain Layer
 
 不要把所有数据都塞进聊天历史。求职领域至少需要以下一等对象：
 
@@ -310,3 +341,35 @@ MVP：localStorage。
 当前版本已经具备“Agent 产品骨架”，但还不是最终智能层。
 
 下一步最重要的不是再加页面，而是把数据契约、模型网关、证据图谱和评测基准做实。只要这些底座稳定，后续增加岗位搜索、公司研究、投递管理、语音面试等 Skill 都会是增量开发，而不是重写整个产品。
+
+
+## 14. v0.2 架构增量
+
+本次升级新增：
+
+- server.js：零依赖静态服务器、健康检查、模型代理、限流与输入校验
+- model-gateway.js：统一适配安全代理、浏览器直连和规则降级
+- context.llm.complete：Skill 稳定的模型调用契约
+- API Key 服务端托管：推荐部署方式不再把密钥放入浏览器
+- 模型网关状态栏：显示安全 AI、直连 AI 或本地规则模式
+- 模型连接测试：在设置面板中验证代理与模型配置
+- node:test 测试：覆盖路径安全、输入校验、代理模式和会话级直连密钥
+
+新的请求生命周期：
+
+1. Skill 调用 context.llm.complete。
+2. Model Gateway 检查同源代理健康状态。
+3. 代理可用时只发送提示，不发送浏览器密钥。
+4. server.js 注入服务端密钥并调用模型。
+5. 结果归一化为 text、model、usage、finishReason。
+6. Skill 继续生成业务结果并写回产品状态。
+7. 代理不可用且没有直连配置时，Skill 使用规则降级。
+
+后续优先级：
+
+1. 流式响应与取消
+2. Prompt 版本和模型路由
+3. Redis 全局限流
+4. 结构化输出 Schema
+5. OpenTelemetry 调用追踪
+6. 用户级成本预算与审计

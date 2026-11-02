@@ -59,8 +59,8 @@
         <button class="skill-status-card" data-action="show-skills">
           <div class="skill-status-icon" data-icon="blocks"></div>
           <div class="skill-status-copy">
-            <strong>5 个 Skills 在线</strong>
-            <span>运行框架已就绪</span>
+            <strong id="skill-status-title">7 个 Skills 在线</strong>
+            <span id="skill-status-subtitle">正在检测模型网关</span>
           </div>
           <span data-icon="chevron-right"></span>
         </button>
@@ -88,6 +88,7 @@
             <strong id="breadcrumb-current">今日推进</strong>
           </div>
           <div class="topbar-actions">
+            <button class="model-mode-pill is-rules" id="model-mode-pill" data-action="open-llm-settings" aria-label="打开模型网关设置"><span data-icon="brain-circuit"></span><span>本地规则</span></button>
             <div class="save-state">
               <span class="save-dot"></span>
               <span>已保存到本机</span>
