@@ -66,7 +66,7 @@ Skill 只依赖：
 
     {
       "ok": true,
-      "version": "0.2.0",
+      "version": "0.3.0",
       "llm": {
         "configured": true,
         "mode": "secure-proxy",

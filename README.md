@@ -11,6 +11,8 @@ GitHub: https://github.com/Lixinyi279/career-os
 - 职业方向匹配与目标岗位锁定
 - 简历诊断、JD 对比与 Fact-Lock 改写
 - STAR 经历教练
+- 投递看板、阶段推进与反馈记录
+- 投递转化率与停滞流程复盘
 - 行为面、案例面、压力面训练
 - 回答评分、反馈和训练报告
 - 周计划生成、负荷检查与任务导出
@@ -107,12 +109,14 @@ Skill 统一通过 context.llm.complete 调用模型：
       skills.plan.js
       skills.rewrite.js
       skills.star.js
+      skills.pipeline.js
       skills/
         manifest.schema.json
         _template.skill.js
       tests/
         server.test.js
         model-gateway.test.js
+        pipeline.test.js
       docs/
         LLM_GATEWAY.md
       ARCHITECTURE.md
@@ -154,3 +158,11 @@ Skill 统一通过 context.llm.complete 调用模型：
 - 生产接入前应增加用户认证、加密存储和删除机制
 
 详细架构见 ARCHITECTURE.md，模型网关协议见 docs/LLM_GATEWAY.md。
+
+## v0.3 投递闭环
+
+- 记录公司、岗位、来源、匹配度、阶段和真实反馈
+- 支持已投递、测评、面试、Offer、已结束五阶段流转
+- 看板展示响应率、反馈样本和最近行动
+- 投递复盘 Skill 会识别停滞流程，并优先处理最近截止项
+- 求职就绪度开始纳入投递进展与反馈样本

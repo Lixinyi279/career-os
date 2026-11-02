@@ -1,14 +1,14 @@
 {
   "name": "career-os",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Personalized career agent and execution workspace for graduate job seekers",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test tests/server.test.js tests/model-gateway.test.js",
-    "check": "node --check server.js && node --check model-gateway.js && node --check app.js && node --test tests/server.test.js tests/model-gateway.test.js"
+    "test": "node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js",
+    "check": "node --check server.js && node --check model-gateway.js && node --check app.js && node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js"
   },
   "engines": {
     "node": ">=20"

@@ -92,10 +92,19 @@
     application: { label: "投递", color: "rose" },
   };
 
+  const PIPELINE_STAGES = [
+    { id: "applied", label: "已投递", short: "投递", color: "blue" },
+    { id: "assessment", label: "笔试 / 测评", short: "测评", color: "violet" },
+    { id: "interview", label: "面试中", short: "面试", color: "orange" },
+    { id: "offer", label: "Offer", short: "Offer", color: "green" },
+    { id: "closed", label: "已结束", short: "结束", color: "gray" },
+  ];
+
   const VIEW_META = {
     dashboard: { root: "工作台", current: "今日推进" },
     positioning: { root: "方向定位", current: "目标与证据" },
     resume: { root: "简历工坊", current: "诊断与改写" },
+    pipeline: { root: "投递看板", current: "进程与反馈" },
     interview: { root: "模拟面试", current: "训练与反馈" },
     plan: { root: "行动计划", current: "本周主线" },
     profile: { root: "个人档案", current: "画像与偏好" },
@@ -142,7 +151,7 @@
 
   function createDefaultState() {
     return {
-      version: 1,
+      version: 2,
       profile: {
         name: "林知夏",
         school: "华东某高校",
@@ -165,6 +174,12 @@
         { id: "t5", day: "周四", title: "找 1 位行业前辈做信息访谈", detail: "准备 3 个问题：日常、考核、成长路径。", category: "network", duration: 35, done: false, priority: "P2" },
         { id: "t6", day: "周五", title: "复盘投递与面试反馈", detail: "区分简历问题、方向问题与表达问题。", category: "review", duration: 25, done: false, priority: "P1" },
         { id: "t7", day: "周日", title: "更新下周求职策略", detail: "依据反馈决定继续、收窄或切换方向。", category: "review", duration: 30, done: false, priority: "P1" },
+      ],
+      applications: [
+        { id: "app-1", company: "云帆科技", role: "产品运营实习生", city: "上海", stage: "interview", source: "公司官网", appliedAt: "2026-10-22", nextAction: "准备二面案例分析", nextAt: "2026-11-04", fit: 86, notes: "一面重点追问用户增长和指标解释，面试官偏业务型。", feedback: "一面通过：项目真实度认可，数据归因需要补强。", createdAt: "2026-10-22T09:30:00.000Z", updatedAt: "2026-10-30T12:10:00.000Z" },
+        { id: "app-2", company: "拾光数据", role: "数据产品实习生", city: "杭州", stage: "assessment", source: "校园招聘", appliedAt: "2026-10-27", nextAction: "完成在线测评", nextAt: "2026-11-03", fit: 79, notes: "岗位偏数据平台，需补需求抽象案例。", feedback: "", createdAt: "2026-10-27T05:20:00.000Z", updatedAt: "2026-10-29T08:40:00.000Z" },
+        { id: "app-3", company: "北辰互动", role: "用户运营", city: "上海", stage: "applied", source: "内推", appliedAt: "2026-10-31", nextAction: "跟进内推状态", nextAt: "2026-11-05", fit: 75, notes: "内推人建议突出社群运营与用户访谈。", feedback: "", createdAt: "2026-10-31T03:00:00.000Z", updatedAt: "2026-10-31T03:00:00.000Z" },
+        { id: "app-4", company: "远山咨询", role: "研究助理", city: "远程", stage: "closed", source: "招聘平台", appliedAt: "2026-10-14", nextAction: "归档复盘", nextAt: "", fit: 58, notes: "岗位要求定量研究深度高于当前证据。", feedback: "简历未通过：研究方法和统计项目需要更具体。", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-23T07:30:00.000Z" }
       ],
       roles: [
         { id: "product-ops", title: "产品运营", track: "互联网 / SaaS", fit: 84, salary: "14-22K", status: "主攻", selected: true, why: "项目经历与用户研究能力可直接迁移，岗位样本多，适合作为秋招主线。", gaps: ["指标体系", "A/B 实验"] },
@@ -223,6 +238,7 @@
     state.readiness = Object.assign({}, fresh.readiness, saved.readiness || {});
     state.tasks = Array.isArray(saved.tasks) && saved.tasks.length ? saved.tasks : fresh.tasks;
     state.roles = Array.isArray(saved.roles) && saved.roles.length ? saved.roles : fresh.roles;
+    state.applications = Array.isArray(saved.applications) ? saved.applications : fresh.applications;
     state.messages = Array.isArray(saved.messages) ? saved.messages : fresh.messages;
     state.memory = Array.isArray(saved.memory) ? saved.memory : fresh.memory;
     state.suggestions = Array.isArray(saved.suggestions) ? saved.suggestions : fresh.suggestions;
@@ -285,7 +301,11 @@
     const positioning = Math.min(92, Math.round(38 + completeness * 0.42 + (selectedRole ? 8 : 0)));
     const resume = Math.max(20, Math.min(94, state.resume.score || 34));
     const interview = Math.max(18, Math.min(92, state.interview.score || 28));
-    const pipeline = Math.max(16, Math.min(90, 18 + Math.round(taskCompletion() * 0.72)));
+    const applications = Array.isArray(state.applications) ? state.applications : [];
+    const activeApplications = applications.filter((item) => item.stage !== "closed").length;
+    const progressedApplications = applications.filter((item) => ["assessment", "interview", "offer"].includes(item.stage)).length;
+    const feedbackApplications = applications.filter((item) => String(item.feedback || "").trim()).length;
+    const pipeline = Math.max(16, Math.min(94, 14 + Math.round(taskCompletion() * 0.32) + Math.min(28, activeApplications * 4 + progressedApplications * 5) + Math.min(16, feedbackApplications * 4)));
     return {
       positioning: positioning,
       resume: resume,
@@ -347,6 +367,7 @@
     $("#sidebar-avatar").textContent = firstName.slice(0, 1) || "职";
     $("#sidebar-completeness").textContent = readiness.completeness + "%";
     $("#resume-nav-count").textContent = String(state.resume.score || 0);
+    $("#pipeline-nav-count").textContent = String((state.applications || []).filter((item) => item.stage !== "closed").length);
     $("#agent-context-title").textContent = state.profile.gradYear + " 届 · " + state.profile.targetTrack;
     $("#agent-context-completeness").textContent = "画像 " + readiness.completeness + "%";
     $("#agent-context-hours").textContent = "本周 " + state.profile.weeklyHours + "h";
@@ -405,6 +426,7 @@
       dashboard: renderDashboard,
       positioning: renderPositioning,
       resume: renderResume,
+      pipeline: renderPipeline,
       interview: renderInterview,
       plan: renderPlan,
       profile: renderProfile,
@@ -492,6 +514,8 @@
     const selectedRole = state.roles.find((role) => role.selected) || state.roles[0];
     const completed = state.tasks.filter((task) => task.done).length;
     const interviewHistory = state.interview.history.length;
+    const activeApplications = (state.applications || []).filter((item) => item.stage !== "closed");
+    const pipelineFeedback = (state.applications || []).filter((item) => String(item.feedback || "").trim()).length;
     const stage = getCurrentStage();
     const steps = [
       { title: "职业定位", detail: "画像与方向", score: readiness.positioning },
@@ -578,6 +602,17 @@
     );
 
     html.push(
+      '<section class="card pipeline-pulse">' +
+      '<div class="pipeline-pulse-main"><div class="pulse-icon">' + icon("briefcase", 19) + '</div><div><span class="section-kicker">投递反馈环</span><h3>' + activeApplications.length + ' 条流程仍在推进</h3><p>' + (pipelineFeedback ? '已经收到 ' + pipelineFeedback + ' 条明确反馈。下一步优先处理最近截止的记录，而不是盲目增加投递量。' : '还没有足够反馈样本。先记录真实进展，再决定是否扩展岗位范围。') + '</p></div></div>' +
+      '<div class="pipeline-pulse-stats">' +
+      '<div><strong>' + activeApplications.filter((item) => item.stage === "assessment").length + '</strong><span>测评</span></div>' +
+      '<div><strong>' + activeApplications.filter((item) => item.stage === "interview").length + '</strong><span>面试</span></div>' +
+      '<div><strong>' + (state.applications || []).filter((item) => item.stage === "offer").length + '</strong><span>Offer</span></div>' +
+      '<button class="text-button" data-view="pipeline">管理投递' + icon("arrow-right", 14) + '</button>' +
+      '</div></section>'
+    );
+
+    html.push(
       '<section class="card insight-card">' +
       '<div class="insight-mark">' + icon("quote", 22) + '</div>' +
       '<div><span class="section-kicker">Agent 观察</span><h3>你的问题不是经历少，而是证据没有被翻译成岗位语言。</h3><p>信息管理背景、用户访谈和项目推动能力都能迁移到产品运营。下一次改写时，把“做了什么”换成“在什么约束下做了哪个决策，带来了什么变化”。</p><button class="button button-secondary" data-prompt="帮我分析能力缺口并给一个改写例子">继续分析能力缺口</button></div>' +
@@ -585,6 +620,96 @@
     );
 
     html.push('</div></div>');
+    return html.join("");
+  }
+
+  function pipelineStage(stageId) {
+    return PIPELINE_STAGES.find((stage) => stage.id === stageId) || PIPELINE_STAGES[0];
+  }
+
+  function formatCalendarDate(value) {
+    if (!value) return "未设置";
+    const date = new Date(value + "T00:00:00");
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  }
+
+  function isPastDate(value) {
+    if (!value) return false;
+    const date = new Date(value + "T23:59:59");
+    return !Number.isNaN(date.getTime()) && date.getTime() < Date.now();
+  }
+
+  function renderApplicationCard(application) {
+    const stageIndex = PIPELINE_STAGES.findIndex((stage) => stage.id === application.stage);
+    const canAdvance = stageIndex >= 0 && stageIndex < PIPELINE_STAGES.length - 1;
+    const nextLabel = application.stage === "offer" ? "完成流程" : application.stage === "interview" ? "记录 Offer" : "推进阶段";
+    const dueTone = isPastDate(application.nextAt) && application.stage !== "closed" ? " is-overdue" : "";
+    return (
+      '<article class="application-card stage-' + escapeHTML(application.stage) + '">' +
+      '<div class="application-card-head"><div><strong>' + escapeHTML(application.company) + '</strong><p>' + escapeHTML(application.role) + '</p></div><span class="application-fit">' + Number(application.fit || 0) + '%</span></div>' +
+      '<div class="application-tags"><span>' + escapeHTML(application.city || "地点待定") + '</span><span>' + escapeHTML(application.source || "来源未填") + '</span></div>' +
+      (application.nextAction ? '<div class="application-next' + dueTone + '"><span>' + icon("clock-3", 13) + '</span><div><small>下一步</small><strong>' + escapeHTML(application.nextAction) + '</strong><p>' + formatCalendarDate(application.nextAt) + '</p></div></div>' : "") +
+      (application.feedback ? '<p class="application-feedback">' + escapeHTML(application.feedback) + '</p>' : "") +
+      '<div class="application-card-actions">' +
+      (canAdvance ? '<button class="mini-button" data-action="advance-application" data-application-id="' + escapeHTML(application.id) + '">' + nextLabel + icon("arrow-right", 12) + '</button>' : '<span class="pipeline-closed-label">流程已结束</span>') +
+      '<button class="icon-button soft tiny" data-action="open-application" data-application-id="' + escapeHTML(application.id) + '" aria-label="编辑投递">' + icon("settings-2", 14) + '</button>' +
+      '</div></article>'
+    );
+  }
+
+  function renderPipeline() {
+    const apps = Array.isArray(state.applications) ? state.applications : [];
+    const active = apps.filter((item) => item.stage !== "closed");
+    const advanced = apps.filter((item) => ["assessment", "interview", "offer"].includes(item.stage));
+    const offers = apps.filter((item) => item.stage === "offer");
+    const feedbackCount = apps.filter((item) => String(item.feedback || "").trim()).length;
+    const responseRate = apps.length ? Math.round((advanced.length / apps.length) * 100) : 0;
+    const actionable = active
+      .slice()
+      .sort((a, b) => {
+        const ad = a.nextAt ? new Date(a.nextAt).getTime() : Number.MAX_SAFE_INTEGER;
+        const bd = b.nextAt ? new Date(b.nextAt).getTime() : Number.MAX_SAFE_INTEGER;
+        return ad - bd;
+      })
+      .find((item) => item.nextAction);
+    const html = [];
+    html.push('<div class="view view-pipeline">');
+    html.push(pageHeading(
+      "投递与反馈闭环",
+      "不要只记录投递，记录市场在说什么。",
+      "每个阶段都需要留下下一步和反馈。Agent 会用这些信号判断是继续扩量、收紧方向，还是先修材料和面试表达。",
+      '<button class="button button-secondary" data-prompt="分析我的投递流程和反馈并给下一步建议">' + icon("sparkles", 16) + '让 Agent 复盘</button><button class="button button-primary" data-action="open-application">' + icon("plus", 16) + '新增投递</button>'
+    ));
+    html.push(
+      '<div class="pipeline-summary">' +
+      '<div class="pipeline-stat"><span>活跃流程</span><strong>' + active.length + '</strong><small>共记录 ' + apps.length + ' 条</small></div>' +
+      '<div class="pipeline-stat"><span>进入测评 / 面试</span><strong>' + advanced.length + '</strong><small>响应率 ' + responseRate + '%</small></div>' +
+      '<div class="pipeline-stat"><span>面试中</span><strong>' + apps.filter((item) => item.stage === "interview").length + '</strong><small>当前最需要准备</small></div>' +
+      '<div class="pipeline-stat highlight"><span>Offer</span><strong>' + offers.length + '</strong><small>不把单次结果当结论</small></div>' +
+      '<div class="pipeline-stat"><span>反馈样本</span><strong>' + feedbackCount + '</strong><small>至少 3 条再调策略</small></div>' +
+      '</div>'
+    );
+    html.push('<div class="pipeline-board-wrap"><div class="pipeline-board">');
+    PIPELINE_STAGES.forEach((stage) => {
+      const cards = apps.filter((item) => item.stage === stage.id);
+      html.push(
+        '<section class="pipeline-column">' +
+        '<div class="pipeline-column-head"><div><span class="stage-dot stage-' + stage.color + '"></span><strong>' + stage.label + '</strong></div><span>' + cards.length + '</span></div>' +
+        '<div class="pipeline-column-body">' +
+        (cards.length ? cards.map(renderApplicationCard).join("") : '<div class="pipeline-empty">' + icon("plus", 17) + '<span>暂无记录</span></div>') +
+        '</div></section>'
+      );
+    });
+    html.push('</div></div>');
+    html.push(
+      '<div class="pipeline-bottom-grid">' +
+      '<section class="card pipeline-focus-card"><span class="section-kicker">当前最该做的事</span><h3>' + escapeHTML(actionable ? actionable.nextAction : "补充新的投递记录") + '</h3><p>' + escapeHTML(actionable ? actionable.company + " · " + actionable.role + "，计划时间 " + formatCalendarDate(actionable.nextAt) : "没有待办时，不要用焦虑驱动海投；先补 3 条样本或复盘已结束流程。") + '</p>' +
+      (actionable ? '<button class="button button-primary" data-action="open-application" data-application-id="' + actionable.id + '">更新这条记录</button>' : '<button class="button button-primary" data-action="open-application">新增投递</button>') + '</section>' +
+      '<section class="card feedback-card"><div class="card-heading"><div><span class="section-kicker">反馈信号</span><h3>哪些反馈值得写下来</h3></div><span class="tag tag-orange">关键</span></div><div class="feedback-examples"><p><strong>简历反馈</strong>岗位不匹配、关键词不足、项目结果不清。</p><p><strong>面试反馈</strong>表达太长、个人贡献模糊、数据归因缺失。</p><p><strong>市场反馈</strong>同方向连续未过初筛，才考虑调整定位。</p></div></section>' +
+      '</div>'
+    );
+    html.push('</div>');
     return html.join("");
   }
 
@@ -969,6 +1094,32 @@
       });
     }
     window.CareerOS.llm.refreshServerStatus(true).then(() => renderModelStatus());
+  }
+
+  function openApplicationModal(applicationId) {
+    const existing = (state.applications || []).find((item) => item.id === applicationId) || null;
+    const today = new Date().toISOString().slice(0, 10);
+    const stageOptions = PIPELINE_STAGES.map((stage) => '<option value="' + stage.id + '"' + ((existing ? existing.stage : "applied") === stage.id ? " selected" : "") + '>' + stage.label + '</option>').join("");
+    const content =
+      '<form id="application-form" class="modal-form">' +
+      '<input type="hidden" name="applicationId" value="' + escapeHTML(existing ? existing.id : "") + '" />' +
+      '<div class="form-grid">' +
+      '<label class="field"><span>公司</span><input name="company" value="' + escapeHTML(existing ? existing.company : "") + '" placeholder="例如：云帆科技" required /></label>' +
+      '<label class="field"><span>岗位</span><input name="role" value="' + escapeHTML(existing ? existing.role : "") + '" placeholder="例如：产品运营实习生" required /></label>' +
+      '<label class="field"><span>城市</span><input name="city" value="' + escapeHTML(existing ? existing.city : state.profile.cities.split("、")[0] || "") + '" /></label>' +
+      '<label class="field"><span>来源</span><input name="source" value="' + escapeHTML(existing ? existing.source : "") + '" placeholder="官网 / 内推 / 招聘平台" /></label>' +
+      '<label class="field"><span>当前阶段</span><select name="stage">' + stageOptions + '</select></label>' +
+      '<label class="field"><span>匹配度</span><input name="fit" type="number" min="0" max="100" value="' + Number(existing ? existing.fit : 70) + '" /></label>' +
+      '<label class="field"><span>投递日期</span><input name="appliedAt" type="date" value="' + escapeHTML(existing ? existing.appliedAt : today) + '" /></label>' +
+      '<label class="field"><span>下一步时间</span><input name="nextAt" type="date" value="' + escapeHTML(existing ? existing.nextAt : "") + '" /></label>' +
+      '<label class="field field-wide"><span>下一步行动</span><input name="nextAction" value="' + escapeHTML(existing ? existing.nextAction : "") + '" placeholder="例如：跟进内推 / 准备二面案例" /></label>' +
+      '<label class="field field-wide"><span>备注</span><textarea name="notes" rows="3" placeholder="面试风格、岗位重点、需要补的材料...">' + escapeHTML(existing ? existing.notes : "") + '</textarea></label>' +
+      '<label class="field field-wide"><span>已收到的反馈</span><textarea name="feedback" rows="3" placeholder="只记录真实反馈，不要根据结果猜原因">' + escapeHTML(existing ? existing.feedback : "") + '</textarea></label>' +
+      '</div>' +
+      '<div class="modal-actions">' +
+      (existing ? '<button type="button" class="button button-secondary button-danger-ghost" data-action="delete-application" data-application-id="' + escapeHTML(existing.id) + '">删除记录</button>' : "") +
+      '<button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存投递记录</button></div></form>';
+    openModal(content, { title: existing ? "更新投递记录" : "新增投递记录", kicker: "Application Pipeline", label: "投递记录", className: "modal-wide" });
   }
 
   function openTaskModal() {
@@ -1390,6 +1541,30 @@
         }
       } else if (action === "close-modal") {
         closeModal();
+      } else if (action === "open-application") {
+        openApplicationModal(actionNode.getAttribute("data-application-id") || "");
+      } else if (action === "advance-application") {
+        const application = (state.applications || []).find((item) => item.id === actionNode.getAttribute("data-application-id"));
+        if (application) {
+          const index = PIPELINE_STAGES.findIndex((stage) => stage.id === application.stage);
+          const next = PIPELINE_STAGES[Math.min(index + 1, PIPELINE_STAGES.length - 1)];
+          application.stage = next.id;
+          application.updatedAt = new Date().toISOString();
+          if (next.id === "closed" && !application.feedback) application.feedback = "流程结束，补充真实反馈后再做归因。";
+          saveState();
+          render();
+          showToast(application.company + " 已推进到「" + next.label + "」");
+        }
+      } else if (action === "delete-application") {
+        const applicationId = actionNode.getAttribute("data-application-id");
+        const application = (state.applications || []).find((item) => item.id === applicationId);
+        if (application && window.confirm("确定删除 " + application.company + " 的投递记录？")) {
+          state.applications = state.applications.filter((item) => item.id !== applicationId);
+          saveState();
+          closeModal();
+          render();
+          showToast("投递记录已删除");
+        }
       } else if (action === "open-task") {
         openTaskModal();
       } else if (action === "start-interview" || action === "restart-interview") {
@@ -1482,6 +1657,39 @@
       ui.view = "plan";
       render();
       showToast("新任务已加入本周计划");
+    } else if (form.id === "application-form") {
+      const data = new FormData(form);
+      const applicationId = String(data.get("applicationId") || "").trim();
+      const stage = String(data.get("stage") || "applied");
+      const record = {
+        id: applicationId || makeId("application"),
+        company: String(data.get("company") || "").trim(),
+        role: String(data.get("role") || "").trim(),
+        city: String(data.get("city") || "").trim(),
+        source: String(data.get("source") || "").trim(),
+        stage: PIPELINE_STAGES.some((item) => item.id === stage) ? stage : "applied",
+        appliedAt: String(data.get("appliedAt") || ""),
+        nextAt: String(data.get("nextAt") || ""),
+        nextAction: String(data.get("nextAction") || "").trim(),
+        notes: String(data.get("notes") || "").trim(),
+        feedback: String(data.get("feedback") || "").trim(),
+        fit: clamp(Number(data.get("fit")) || 0, 0, 100),
+        updatedAt: new Date().toISOString(),
+      };
+      state.applications = Array.isArray(state.applications) ? state.applications : [];
+      const existingIndex = state.applications.findIndex((item) => item.id === applicationId);
+      if (existingIndex >= 0) {
+        record.createdAt = state.applications[existingIndex].createdAt || record.updatedAt;
+        state.applications[existingIndex] = record;
+      } else {
+        record.createdAt = record.updatedAt;
+        state.applications.push(record);
+      }
+      saveState();
+      closeModal();
+      ui.view = "pipeline";
+      render();
+      showToast(applicationId ? "投递记录已更新" : "投递记录已加入看板");
     } else if (form.id === "interview-form") {
       handleInterviewAnswer(form);
     } else if (form.id === "llm-form") {
@@ -1577,7 +1785,7 @@
     generatePlan: generatePlan,
     scoreResume: scoreResume,
     render: render,
-    version: "0.2.0",
+    version: "0.3.0",
   });
 
   init();
