@@ -105,6 +105,7 @@
     positioning: { root: "方向定位", current: "目标与证据" },
     resume: { root: "简历工坊", current: "诊断与改写" },
     evidence: { root: "证据库", current: "事实与素材" },
+    jobs: { root: "岗位研究", current: "JD 与证据匹配" },
     pipeline: { root: "投递看板", current: "进程与反馈" },
     interview: { root: "模拟面试", current: "训练与反馈" },
     plan: { root: "行动计划", current: "本周主线" },
@@ -195,6 +196,12 @@
         { id: "user-research", title: "用户研究", track: "互联网 / 咨询", fit: 73, salary: "13-20K", status: "观察", selected: false, why: "访谈和洞察是优势，但岗位数量更少，对方法论深度要求更高。", gaps: ["研究方法", "样本设计"] },
         { id: "ai-product", title: "AI 产品运营", track: "AI 应用 / 工具", fit: 68, salary: "15-23K", status: "探索", selected: false, why: "增长快且与内容运营相通，但需要补充 AI 产品理解与评测经验。", gaps: ["AI 产品认知", "提示词评测"] },
       ],
+      jobTargets: [
+        { id: "job-1", company: "云帆科技", role: "产品运营实习生", city: "上海", source: "公司官网", deadline: "2026-11-10", priority: "P0", status: "active", jd: "负责用户增长与活动运营；通过用户研究、数据分析和 A/B 实验优化核心指标；协同产品、设计和研发推动方案落地；输出运营复盘与增长建议。", notes: "已进入二面，岗位偏业务增长，需要强化指标解释。" },
+        { id: "job-2", company: "拾光数据", role: "数据产品实习生", city: "杭州", source: "校园招聘", deadline: "2026-11-08", priority: "P0", status: "active", jd: "参与数据产品需求分析与原型设计；使用 SQL 和 Excel 完成数据验证；理解数据模型与 API；与研发协作推动数据平台功能上线。", notes: "需要补 SQL 和需求抽象的案例。" },
+        { id: "job-3", company: "北辰互动", role: "用户运营", city: "上海", source: "内推", deadline: "2026-11-12", priority: "P1", status: "active", jd: "负责用户社群运营、内容策划和活动执行；通过用户访谈与数据分析识别需求；提升用户活跃、留存和转化；与内容及产品团队协同。", notes: "内推人建议突出社群与用户洞察。" },
+        { id: "job-4", company: "远山咨询", role: "研究助理", city: "远程", source: "招聘平台", deadline: "2026-10-20", priority: "P2", status: "archived", jd: "支持定量与定性研究项目；完成问卷设计、访谈记录、数据清洗和研究报告；要求较强的统计分析与沟通能力。", notes: "已结束，反馈是研究方法证据不足。" }
+      ],
       resume: {
         text: defaultResume,
         targetJD: defaultJD,
@@ -248,6 +255,7 @@
     state.roles = Array.isArray(saved.roles) && saved.roles.length ? saved.roles : fresh.roles;
     state.applications = Array.isArray(saved.applications) ? saved.applications : fresh.applications;
     state.evidence = Array.isArray(saved.evidence) ? saved.evidence : fresh.evidence;
+    state.jobTargets = Array.isArray(saved.jobTargets) ? saved.jobTargets : fresh.jobTargets;
     state.messages = Array.isArray(saved.messages) ? saved.messages : fresh.messages;
     state.memory = Array.isArray(saved.memory) ? saved.memory : fresh.memory;
     if (!Object.prototype.hasOwnProperty.call(saved, "onboardingComplete")) state.onboardingComplete = true;
@@ -384,6 +392,7 @@
     $("#resume-nav-count").textContent = String(state.resume.score || 0);
     $("#pipeline-nav-count").textContent = String((state.applications || []).filter((item) => item.stage !== "closed").length);
     $("#evidence-nav-count").textContent = String((state.evidence || []).length);
+    $("#jobs-nav-count").textContent = String((state.jobTargets || []).filter((item) => item.status !== "archived").length);
     $("#agent-context-title").textContent = state.profile.gradYear + " 届 · " + state.profile.targetTrack;
     $("#agent-context-completeness").textContent = "画像 " + readiness.completeness + "%";
     $("#agent-context-hours").textContent = "本周 " + state.profile.weeklyHours + "h";
@@ -443,6 +452,7 @@
       positioning: renderPositioning,
       resume: renderResume,
       evidence: renderEvidence,
+      jobs: renderJobs,
       pipeline: renderPipeline,
       interview: renderInterview,
       plan: renderPlan,
@@ -704,6 +714,70 @@
       '<div class="evidence-actions"><button class="mini-button" data-prompt="' + escapeHTML("基于证据「" + item.title + "」帮我做一版 STAR 面试回答") + '">用它练 STAR' + icon("arrow-right", 12) + '</button><button class="text-button" data-action="open-evidence" data-evidence-id="' + escapeHTML(item.id) + '">编辑证据</button></div>' +
       '</article>'
     );
+  }
+
+  function analyzeTargetJob(job) {
+    if (!window.CareerOS || !window.CareerOS.jobFit) return { score: 0, coverage: 0, matched: [], missing: [], requiredCount: 0, nextActions: [] };
+    return window.CareerOS.jobFit.analyze(job, state.evidence || [], state.resume || {});
+  }
+
+  function renderJobCard(job) {
+    const analysis = analyzeTargetJob(job);
+    const deadline = job.deadline ? formatCalendarDate(job.deadline) : "未设置";
+    const overdue = job.status !== "archived" && isPastDate(job.deadline);
+    return (
+      '<article class="job-card">' +
+      '<div class="job-card-head"><div><div class="job-company-line"><span class="tag tag-neutral">' + escapeHTML(job.priority || "P1") + '</span><span>' + escapeHTML(job.company) + '</span></div><h3>' + escapeHTML(job.role) + '</h3><p>' + escapeHTML(job.city || "地点待定") + '<span>·</span>' + escapeHTML(job.source || "来源未填") + '</p></div><div class="job-score"><strong>' + analysis.score + '</strong><span>match</span></div></div>' +
+      '<div class="job-coverage"><span>JD 证据覆盖</span><div class="meter"><i style="width:' + analysis.coverage + '%"></i></div><b>' + analysis.coverage + '%</b></div>' +
+      '<div class="job-keyword-groups"><div><span>已覆盖</span>' + (analysis.matched.length ? analysis.matched.map((item) => '<b class="matched-chip">' + escapeHTML(item) + '</b>').join("") : '<b class="empty-chip">暂无</b>') + '</div><div><span>待补证据</span>' + (analysis.missing.length ? analysis.missing.map((item) => '<b class="missing-chip">' + escapeHTML(item) + '</b>').join("") : '<b class="matched-chip">核心能力已覆盖</b>') + '</div></div>' +
+      (analysis.nextActions.length ? '<p class="job-next-action">' + icon("target", 14) + '<span>' + escapeHTML(analysis.nextActions[0]) + '</span></p>' : "") +
+      '<div class="job-card-footer"><span class="job-deadline' + (overdue ? " is-overdue" : "") + '">' + icon("calendar-days", 13) + '截止 ' + deadline + '</span><div><button class="mini-button" data-prompt="' + escapeHTML("分析 " + job.company + " 的 " + job.role + " JD，并告诉我最缺什么证据") + '">问 Agent</button><button class="icon-button soft tiny" data-action="open-job" data-job-id="' + escapeHTML(job.id) + '" aria-label="编辑岗位">' + icon("settings-2", 14) + '</button><button class="mini-button" data-action="job-to-pipeline" data-job-id="' + escapeHTML(job.id) + '">转入投递' + icon("arrow-right", 12) + '</button></div></div>' +
+      '</article>'
+    );
+  }
+
+  function renderJobs() {
+    const jobs = Array.isArray(state.jobTargets) ? state.jobTargets : [];
+    const activeJobs = jobs.filter((item) => item.status !== "archived");
+    const analyzed = activeJobs.map((job) => ({ job, analysis: analyzeTargetJob(job) }));
+    const average = analyzed.length ? Math.round(analyzed.reduce((sum, item) => sum + item.analysis.score, 0) / analyzed.length) : 0;
+    const priorityJobs = activeJobs.filter((item) => item.priority === "P0");
+    const urgent = activeJobs.filter((item) => {
+      if (!item.deadline) return false;
+      const days = (new Date(item.deadline + "T23:59:59").getTime() - Date.now()) / 86400000;
+      return days >= 0 && days <= 7;
+    });
+    const sorted = activeJobs.slice().sort((a, b) => {
+      const priority = { P0: 0, P1: 1, P2: 2 };
+      if (priority[a.priority] !== priority[b.priority]) return priority[a.priority] - priority[b.priority];
+      return new Date(a.deadline || "2999-01-01").getTime() - new Date(b.deadline || "2999-01-01").getTime();
+    });
+    const html = [];
+    html.push('<div class="view view-jobs">');
+    html.push(pageHeading(
+      "岗位研究",
+      "用 JD 验证方向，而不是凭岗位名称猜测。",
+      "把真实岗位要求和证据库放在一起看：哪些能力已有证据，哪些只是自我感觉，哪些需要先补再投。",
+      '<button class="button button-secondary" data-prompt="分析我的目标岗位 JD 和证据覆盖情况">' + icon("sparkles", 16) + '让 Agent 分析</button><button class="button button-primary" data-action="open-job">' + icon("plus", 16) + '新增岗位</button>'
+    ));
+    html.push(
+      '<div class="jobs-summary">' +
+      '<div class="jobs-stat"><span>有效目标</span><strong>' + activeJobs.length + '</strong><small>已归档 ' + (jobs.length - activeJobs.length) + '</small></div>' +
+      '<div class="jobs-stat"><span>P0 岗位</span><strong>' + priorityJobs.length + '</strong><small>优先验证</small></div>' +
+      '<div class="jobs-stat"><span>平均匹配</span><strong>' + average + '</strong><small>JD × 证据覆盖</small></div>' +
+      '<div class="jobs-stat highlight"><span>7 天内截止</span><strong>' + urgent.length + '</strong><small>需要优先处理</small></div>' +
+      '</div>'
+    );
+    if (sorted.length) {
+      html.push('<div class="jobs-grid">' + sorted.map(renderJobCard).join("") + '</div>');
+    } else {
+      html.push('<div class="card empty-state jobs-empty"><span>' + icon("search", 28) + '</span><p>还没有岗位研究记录</p><button class="button button-primary" data-action="open-job">添加第一个目标岗位</button></div>');
+    }
+    html.push(
+      '<section class="job-principles card"><div class="job-principles-mark">' + icon("scan-search", 22) + '</div><div><span class="section-kicker">研究原则</span><h3>至少看完 3 份同类 JD，再判断一个方向。</h3><p>招聘标题不能代表真实工作。对齐职责、指标、协作对象和考核方式，才能判断这个岗位是否值得投入简历和面试时间。</p></div><div class="job-principles-stats"><span><b>01</b>职责场景</span><span><b>02</b>核心指标</span><span><b>03</b>能力证据</span></div></section>'
+    );
+    html.push('</div>');
+    return html.join("");
   }
 
   function renderEvidence() {
@@ -1269,6 +1343,28 @@
     window.CareerOS.llm.refreshServerStatus(true).then(() => renderModelStatus());
   }
 
+  function openJobModal(jobId) {
+    const existing = (state.jobTargets || []).find((item) => item.id === jobId) || null;
+    const content =
+      '<form id="job-form" class="modal-form">' +
+      '<input type="hidden" name="jobId" value="' + escapeHTML(existing ? existing.id : "") + '" />' +
+      '<div class="form-grid">' +
+      '<label class="field"><span>公司</span><input name="company" value="' + escapeHTML(existing ? existing.company : "") + '" required /></label>' +
+      '<label class="field"><span>岗位</span><input name="role" value="' + escapeHTML(existing ? existing.role : "") + '" required /></label>' +
+      '<label class="field"><span>城市</span><input name="city" value="' + escapeHTML(existing ? existing.city : "") + '" /></label>' +
+      '<label class="field"><span>来源</span><input name="source" value="' + escapeHTML(existing ? existing.source : "") + '" placeholder="官网 / 内推 / 招聘平台" /></label>' +
+      '<label class="field"><span>截止日期</span><input name="deadline" type="date" value="' + escapeHTML(existing ? existing.deadline : "") + '" /></label>' +
+      '<label class="field"><span>优先级</span><select name="priority"><option ' + ((existing ? existing.priority : "P1") === "P0" ? "selected" : "") + '>P0</option><option ' + ((existing ? existing.priority : "P1") === "P1" ? "selected" : "") + '>P1</option><option ' + ((existing ? existing.priority : "P1") === "P2" ? "selected" : "") + '>P2</option></select></label>' +
+      '<label class="field"><span>状态</span><select name="status"><option value="active" ' + ((existing ? existing.status : "active") === "active" ? "selected" : "") + '>研究中</option><option value="archived" ' + ((existing ? existing.status : "active") === "archived" ? "selected" : "") + '>已归档</option></select></label>' +
+      '<label class="field"><span>岗位来源链接</span><input name="sourceUrl" value="' + escapeHTML(existing ? existing.sourceUrl : "") + '" placeholder="可选" /></label>' +
+      '<label class="field field-wide"><span>岗位 JD</span><textarea name="jd" rows="9" placeholder="粘贴完整岗位职责与任职要求，分析会使用真实文本。">' + escapeHTML(existing ? existing.jd : "") + '</textarea></label>' +
+      '<label class="field field-wide"><span>研究备注</span><textarea name="notes" rows="3" placeholder="业务阶段、面试风格、岗位重点或需要验证的问题">' + escapeHTML(existing ? existing.notes : "") + '</textarea></label>' +
+      '</div><div class="modal-actions">' +
+      (existing ? '<button type="button" class="button button-secondary button-danger-ghost" data-action="delete-job" data-job-id="' + escapeHTML(existing.id) + '">删除岗位</button>' : "") +
+      '<button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存岗位研究</button></div></form>';
+    openModal(content, { title: existing ? "更新目标岗位" : "新增目标岗位", kicker: "Job Research", label: "目标岗位", className: "modal-wide" });
+  }
+
   function openEvidenceModal(evidenceId) {
     const existing = (state.evidence || []).find((item) => item.id === evidenceId) || null;
     const typeOptions = ["项目", "课程项目", "实习", "校园经历", "其他"].map((type) => '<option' + ((existing ? existing.type : "项目") === type ? " selected" : "") + '>' + type + '</option>').join("");
@@ -1375,6 +1471,7 @@
       generatePlan: generatePlan,
       profileCompleteness: profileCompleteness,
       llm: window.CareerOS && window.CareerOS.llm ? window.CareerOS.llm.createLlmAdapter() : null,
+      jobFit: window.CareerOS && window.CareerOS.jobFit ? window.CareerOS.jobFit : null,
     };
     const result = await window.CareerAgent.orchestrator.handle(message, context);
     if (result.preset) {
@@ -1837,6 +1934,41 @@
         }
       } else if (action === "close-modal") {
         closeModal();
+      } else if (action === "open-job") {
+        openJobModal(actionNode.getAttribute("data-job-id") || "");
+      } else if (action === "delete-job") {
+        const jobId = actionNode.getAttribute("data-job-id");
+        const job = (state.jobTargets || []).find((item) => item.id === jobId);
+        if (job && window.confirm("确定删除岗位「" + job.company + " · " + job.role + "」？")) {
+          state.jobTargets = state.jobTargets.filter((item) => item.id !== jobId);
+          saveState();
+          closeModal();
+          render();
+          showToast("岗位研究记录已删除");
+        }
+      } else if (action === "job-to-pipeline") {
+        const job = (state.jobTargets || []).find((item) => item.id === actionNode.getAttribute("data-job-id"));
+        if (job) {
+          const existing = (state.applications || []).find((item) => item.company === job.company && item.role === job.role);
+          if (existing) {
+            ui.view = "pipeline";
+            render();
+            showToast("该岗位已在投递看板中");
+          } else {
+            const analysis = analyzeTargetJob(job);
+            const today = new Date().toISOString().slice(0, 10);
+            state.applications = state.applications || [];
+            state.applications.push({
+              id: makeId("application"), company: job.company, role: job.role, city: job.city || "", stage: "applied",
+              source: job.source || "岗位研究", appliedAt: today, nextAction: "按 JD 补强证据并完成投递", nextAt: job.deadline || "",
+              fit: analysis.score, notes: job.notes || "", feedback: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+            });
+            saveState();
+            ui.view = "pipeline";
+            render();
+            showToast("已转入投递看板：" + job.company);
+          }
+        }
       } else if (action === "open-evidence") {
         openEvidenceModal(actionNode.getAttribute("data-evidence-id") || "");
       } else if (action === "delete-evidence") {
@@ -1978,6 +2110,32 @@
       ui.view = "plan";
       render();
       showToast("新任务已加入本周计划");
+    } else if (form.id === "job-form") {
+      const data = new FormData(form);
+      const jobId = String(data.get("jobId") || "").trim();
+      const record = {
+        id: jobId || makeId("job"),
+        company: String(data.get("company") || "").trim(),
+        role: String(data.get("role") || "").trim(),
+        city: String(data.get("city") || "").trim(),
+        source: String(data.get("source") || "").trim(),
+        sourceUrl: String(data.get("sourceUrl") || "").trim(),
+        deadline: String(data.get("deadline") || ""),
+        priority: String(data.get("priority") || "P1"),
+        status: String(data.get("status") || "active"),
+        jd: String(data.get("jd") || "").trim(),
+        notes: String(data.get("notes") || "").trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      state.jobTargets = Array.isArray(state.jobTargets) ? state.jobTargets : [];
+      const index = state.jobTargets.findIndex((item) => item.id === jobId);
+      if (index >= 0) state.jobTargets[index] = record;
+      else state.jobTargets.push(record);
+      saveState();
+      closeModal();
+      ui.view = "jobs";
+      render();
+      showToast(jobId ? "岗位研究已更新" : "目标岗位已加入研究列表");
     } else if (form.id === "evidence-form") {
       const data = new FormData(form);
       const evidenceId = String(data.get("evidenceId") || "").trim();
@@ -2135,7 +2293,7 @@
     generatePlan: generatePlan,
     scoreResume: scoreResume,
     render: render,
-    version: "0.5.0",
+    version: "0.6.0",
   });
 
   init();
