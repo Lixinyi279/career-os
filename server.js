@@ -42,6 +42,7 @@ const MIME_TYPES = {
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
@@ -226,7 +227,7 @@ async function handleApi(req, res, requestId) {
     sendJson(res, 200, {
       ok: true,
       service: "career-os",
-      version: "0.7.0",
+      version: "0.8.0",
       llm: {
         configured: isConfigured(),
         mode: isConfigured() ? "secure-proxy" : "rules",

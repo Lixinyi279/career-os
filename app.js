@@ -333,6 +333,11 @@
     onboardingDraft: null,
   };
 
+  try {
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    if (requestedView && VIEW_META[requestedView]) ui.view = requestedView;
+  } catch (_error) {}
+
   function saveState() {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1419,6 +1424,16 @@
     showToast("你的个性化求职主线已生成");
   }
 
+  function openInstallGuide() {
+    const ios = window.CareerOS && window.CareerOS.pwa && window.CareerOS.pwa.isIos();
+    const content =
+      '<div class="install-guide-intro">' + icon("download", 24) + '<div><span class="section-kicker">安装到设备</span><h3>把职途当作独立应用使用。</h3><p>安装后可全屏打开、保留本地数据，并在网络不稳定时使用已缓存的应用界面。</p></div></div>' +
+      '<div class="install-guide-grid"><article><span>01</span><h4>' + (ios ? "iPhone / iPad" : "Chrome / Edge") + '</h4><p>' + (ios ? "点击 Safari 底部分享按钮，然后选择“添加到主屏幕”。" : "打开浏览器右上角菜单，选择“安装应用”或“安装职途”。") + '</p></article><article><span>02</span><h4>桌面图标</h4><p>安装完成后，可以从桌面或开始菜单直接打开，不需要每次输入网址。</p></article><article><span>03</span><h4>离线界面</h4><p>首次打开会缓存应用外壳。离线时仍能查看和编辑本地数据，模型调用需要网络。</p></article></div>' +
+      '<div class="modal-note">' + icon("info", 16) + '<span>安装能力需要从 http://127.0.0.1:4173 或 HTTPS 地址访问。直接双击 index.html 不会显示浏览器安装提示。</span></div>' +
+      '<div class="modal-actions"><button type="button" class="button button-primary" data-action="close-modal">知道了</button></div>';
+    openModal(content, { title: "安装职途", kicker: "PWA", label: "安装职途", className: "modal-wide" });
+  }
+
   function openLlmSettingsModal() {
     const cfg = window.CareerOS.llm.getConfig();
     const status = window.CareerOS.llm.getServerStatus();
@@ -2011,6 +2026,12 @@
         ui.sidebarOpen = false;
         closeModal();
         renderShell();
+      } else if (action === "install-app") {
+        const result = window.CareerOS && window.CareerOS.pwa ? await window.CareerOS.pwa.promptInstall() : { outcome: "unavailable" };
+        if (result.outcome === "accepted") showToast("职途已开始安装");
+        else if (result.outcome === "dismissed") showToast("已取消安装");
+        else if (result.outcome === "installed") showToast("职途已经安装");
+        else openInstallGuide();
       } else if (action === "start-onboarding") {
         ui.onboardingDraft = Object.assign({}, state.profile);
         openOnboardingModal(0);
@@ -2427,6 +2448,7 @@
     document.addEventListener("keydown", handleKeydown);
     window.addEventListener("beforeunload", saveState);
     render();
+    if (window.CareerOS && window.CareerOS.pwa) window.CareerOS.pwa.refresh();
     if (window.CareerOS && window.CareerOS.llm) {
       window.CareerOS.llm.refreshServerStatus().then(() => renderModelStatus()).catch(() => renderModelStatus());
     }
@@ -2454,7 +2476,7 @@
     loadResumeVersion: loadResumeVersion,
     syncActiveResumeVersion: syncActiveResumeVersion,
     render: render,
-    version: "0.7.0",
+    version: "0.8.0",
   });
 
   init();

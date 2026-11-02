@@ -2,7 +2,7 @@
 
 面向应届生的一站式求职 Agent，把职业定位、岗位选择、证据整理、简历优化、面试训练、投递跟进和策略复盘放进同一个可交互工作台。
 
-当前版本：**v0.7.0**  
+当前版本：**v0.8.0**  
 运行要求：**Node.js 20+，无第三方依赖**  
 仓库地址：https://github.com/Lixinyi279/career-os
 
@@ -45,6 +45,8 @@
 - 移动端与桌面端响应式布局
 - 新用户三步引导，自动生成第一版行动计划
 - 完整求职档案 Markdown 一键导出
+- PWA 安装、桌面/主屏幕入口与离线应用壳
+- Windows、macOS/Linux 和 Docker 启动方式
 
 ### 2. 个人画像与长期记忆
 
@@ -149,6 +151,36 @@
 - 所有模型能力都可以在服务端未配置时降级为本地规则
 
 ---
+
+## 最简单安装
+
+### Windows
+
+双击项目根目录中的：
+
+    start-career-os.cmd
+
+脚本会检查 Node.js、启动本地服务并打开浏览器。
+
+### macOS / Linux
+
+    chmod +x start-career-os.sh
+    ./start-career-os.sh
+
+### 安装为独立应用
+
+使用推荐的服务启动方式访问 http://127.0.0.1:4173，然后：
+
+- Chrome / Edge：点击顶部“安装应用”，或使用浏览器地址栏的安装按钮
+- iPhone / iPad：使用 Safari 分享菜单，选择“添加到主屏幕”
+- Android：使用 Chrome 菜单，选择“安装应用”或“添加到主屏幕”
+
+安装后可以全屏启动并使用桌面/主屏幕图标。应用壳会离线缓存，模型调用和个人数据写入仍需要可用的本地服务与网络。
+
+### Docker
+
+    docker build -t career-os .
+    docker run --rm -p 4173:4173 --env-file .env career-os
 
 ## 快速启动
 
@@ -285,6 +317,10 @@ macOS / Linux 使用：
       server.js                  静态服务、健康检查、模型代理、限流
       model-gateway.js           安全代理/浏览器直连/规则降级适配
       job-fit.js                 JD 关键词与证据覆盖率分析
+      pwa.js                     PWA 安装入口
+      service-worker.js          离线缓存与应用壳
+      manifest.webmanifest       安装元数据
+      icons/                     PWA / Apple / favicon 图标
       agent-core.js              Skill Registry、EventBus、Orchestrator
       app.js                     领域状态、页面渲染和交互
       assets/styles.css          设计系统和响应式样式
@@ -308,11 +344,16 @@ macOS / Linux 使用：
         onboarding.test.js
         job-fit.test.js
         resume-version.test.js
+        pwa.test.js
       docs/
         LLM_GATEWAY.md
       ARCHITECTURE.md
       .env.example
       package.json
+      start-career-os.cmd
+      start-career-os.sh
+      Dockerfile
+      .dockerignore
 
 ---
 
@@ -332,6 +373,8 @@ macOS / Linux 使用：
 - 证据审计与补证计划路由
 - 新用户首次引导与老用户状态迁移
 - 岗位 JD 与证据覆盖率匹配
+- PWA 清单、图标与离线缓存完整性
+- 一键启动和 Docker 文件完整性
 
 ---
 
@@ -417,6 +460,15 @@ macOS / Linux 使用：
 ---
 
 ## 版本记录
+
+### v0.8.0
+
+- 新增 PWA 安装入口与独立应用启动体验
+- 新增应用清单、192/512 图标、Apple Touch Icon 和 favicon
+- 新增 Service Worker 离线应用壳
+- 新增 Windows/macOS/Linux 一键启动脚本
+- 新增 Dockerfile 和 Docker 安装说明
+- 新增 PWA 完整性测试
 
 ### v0.7.0
 

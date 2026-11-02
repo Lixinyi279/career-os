@@ -1,4 +1,4 @@
-# 职途 Career OS 架构 v0.7
+# 职途 Career OS 架构 v0.8
 
 ## 1. 产品判断
 
@@ -517,3 +517,37 @@ Fact-Lock 原则：
 - 删除与恢复版本
 - 投递记录绑定具体简历版本
 - 简历片段与证据 ID 引用
+
+
+## 20. v0.8 PWA 安装与离线应用壳
+
+用户安装路径：
+
+- Windows：双击 start-career-os.cmd
+- macOS / Linux：执行 start-career-os.sh
+- Docker：docker build + docker run
+- 浏览器：通过安装按钮创建 PWA
+- iOS：通过 Safari 分享菜单添加到主屏幕
+
+PWA 组成：
+
+- manifest.webmanifest：名称、主题、启动地址、快捷方式、图标与独立窗口模式
+- service-worker.js：应用壳缓存、离线导航回退和静态资源缓存
+- pwa.js：注册 Service Worker、捕获 beforeinstallprompt、处理 iOS 安装指引
+- 192 / 512 / maskable / Apple Touch / favicon 多尺寸图标
+
+边界：
+
+- 离线只保证 UI 和本地数据操作
+- 模型调用、远程岗位数据和未来云同步需要网络
+- PWA 安装要求访问 HTTPS 或 localhost，不支持 file:// 直接安装
+- 升级应用后必须提升 Service Worker CACHE_NAME
+- 敏感数据仍只保存在本地浏览器
+
+生产部署下一步：
+
+- 正式域名与 HTTPS
+- 自动更新提示
+- Web Push 求职提醒
+- 后台同步与冲突处理
+- 应用商店打包

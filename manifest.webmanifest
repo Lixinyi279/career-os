@@ -1,0 +1,60 @@
+{
+  "id": "./",
+  "name": "职途 Career OS",
+  "short_name": "职途",
+  "description": "面向应届生的一站式职业定位、证据管理、简历优化、面试训练与投递复盘 Agent。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#f3f5f1",
+  "theme_color": "#14372b",
+  "categories": [
+    "productivity",
+    "education",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "求职工作台",
+      "short_name": "工作台",
+      "url": "./?view=dashboard"
+    },
+    {
+      "name": "模拟面试",
+      "short_name": "面试",
+      "url": "./?view=interview"
+    },
+    {
+      "name": "投递看板",
+      "short_name": "投递",
+      "url": "./?view=pipeline"
+    }
+  ]
+}
