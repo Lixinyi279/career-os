@@ -1,14 +1,14 @@
 {
   "name": "career-os",
-  "version": "0.8.0",
+  "version": "0.10.0",
   "private": true,
   "description": "Personalized career agent and execution workspace for graduate job seekers",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js tests/evidence.test.js tests/onboarding.test.js tests/job-fit.test.js tests/resume-version.test.js tests/pwa.test.js",
-    "check": "node --check server.js && node --check model-gateway.js && node --check pwa.js && node --check app.js && node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js tests/evidence.test.js tests/onboarding.test.js tests/job-fit.test.js tests/resume-version.test.js tests/pwa.test.js"
+    "test": "node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js tests/evidence.test.js tests/onboarding.test.js tests/job-fit.test.js tests/resume-version.test.js tests/debrief.test.js tests/pwa.test.js tests/major-market.test.js",
+    "check": "node --check server.js && node --check model-gateway.js && node --check pwa.js && node --check app.js && node --test tests/server.test.js tests/model-gateway.test.js tests/pipeline.test.js tests/evidence.test.js tests/onboarding.test.js tests/job-fit.test.js tests/resume-version.test.js tests/debrief.test.js tests/pwa.test.js tests/major-market.test.js"
   },
   "engines": {
     "node": ">=20"

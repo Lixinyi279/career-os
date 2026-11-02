@@ -219,6 +219,169 @@ async function callProvider(payload) {
   }
 }
 
+const MARKET_CACHE_FILE = path.join(ROOT, "data", "market-cache.json");
+let marketSnapshot = null;
+let marketLoadPromise = null;
+let marketRefreshPromise = null;
+let marketTimer = null;
+
+function getMarketConfig() {
+  const urls = String(process.env.MARKET_FEED_URLS || "").split(",").map((value) => value.trim()).filter((value) => /^https?:\/\//i.test(value));
+  return {
+    feedUrls: urls,
+    refreshMinutes: Math.max(5, Math.min(1440, Number(process.env.MARKET_REFRESH_MINUTES) || 120)),
+    maxItems: Math.max(10, Math.min(100, Number(process.env.MARKET_MAX_ITEMS) || 60))
+  };
+}
+
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function stripXml(value) {
+  return decodeXml(String(value || "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractXmlTag(block, tag) {
+  const match = String(block).match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + tag + ">", "i"));
+  return match ? stripXml(match[1]) : "";
+}
+
+function inferMarketTags(text) {
+  const source = String(text || "").toLowerCase();
+  const groups = [
+    ["AI", /ai|人工智能|大模型|提示词|智能体/],
+    ["数据分析", /数据|sql|指标|分析/],
+    ["产品", /产品|需求|用户研究/],
+    ["运营", /运营|增长|内容|社群/],
+    ["面试", /面试|简历|求职|招聘/],
+    ["技术", /开发|研发|编程|python|java/],
+    ["设计", /设计|交互|视觉|ux/]
+  ];
+  return groups.filter((group) => group[1].test(source)).map((group) => group[0]).slice(0, 4);
+}
+
+function parseMarketFeed(xml, feedUrl) {
+  const text = String(xml || "");
+  const blocks = text.match(/<(?:item|entry)\b[\s\S]*?<\/(?:item|entry)>/gi) || [];
+  const source = (() => {
+    try { return new URL(feedUrl).hostname.replace(/^www\./, ""); } catch (_error) { return "market-feed"; }
+  })();
+  return blocks.map((block, index) => {
+    const title = extractXmlTag(block, "title");
+    const description = extractXmlTag(block, "description") || extractXmlTag(block, "summary") || extractXmlTag(block, "content");
+    const linkMatch = block.match(/<link[^>]+href=["']([^"']+)["']/i);
+    const link = linkMatch ? decodeXml(linkMatch[1]) : extractXmlTag(block, "link");
+    const dateText = extractXmlTag(block, "pubDate") || extractXmlTag(block, "published") || extractXmlTag(block, "updated") || extractXmlTag(block, "dc:date");
+    const publishedAt = dateText && !Number.isNaN(new Date(dateText).getTime()) ? new Date(dateText).toISOString() : null;
+    const summary = description.slice(0, 420);
+    return {
+      id: source + "-" + index + "-" + (publishedAt || "unknown"),
+      title: title || "未命名市场信息",
+      summary,
+      link: /^https?:\/\//i.test(link) ? link : "",
+      source,
+      publishedAt,
+      tags: inferMarketTags(title + " " + summary),
+      kind: "live"
+    };
+  }).filter((item) => item.title && item.summary);
+}
+
+async function loadMarketCache() {
+  if (marketSnapshot) return marketSnapshot;
+  if (marketLoadPromise) return marketLoadPromise;
+  marketLoadPromise = (async function () {
+    try {
+      const data = JSON.parse(await fsp.readFile(MARKET_CACHE_FILE, "utf8"));
+      marketSnapshot = Object.assign({ configured: false, items: [], sources: [], lastUpdated: null, refreshMinutes: getMarketConfig().refreshMinutes }, data);
+    } catch (_error) {
+      marketSnapshot = { configured: false, items: [], sources: [], lastUpdated: null, refreshMinutes: getMarketConfig().refreshMinutes };
+    }
+    return marketSnapshot;
+  })();
+  return marketLoadPromise;
+}
+
+async function fetchMarketFeed(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(url, { headers: { "User-Agent": "CareerOS-Market/1.0", "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml" }, signal: controller.signal });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const text = await response.text();
+    if (text.length > 2_000_000) throw new Error("feed too large");
+    return parseMarketFeed(text, url);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function refreshMarket() {
+  if (marketRefreshPromise) return marketRefreshPromise;
+  const config = getMarketConfig();
+  marketRefreshPromise = (async function () {
+    await loadMarketCache();
+    if (!config.feedUrls.length) {
+      marketSnapshot = Object.assign({}, marketSnapshot, { configured: false, items: [], sources: [], refreshMinutes: config.refreshMinutes });
+      return marketSnapshot;
+    }
+    const results = await Promise.allSettled(config.feedUrls.map(fetchMarketFeed));
+    const items = [];
+    const sources = [];
+    results.forEach((result, index) => {
+      const url = config.feedUrls[index];
+      let name = "market-feed";
+      try { name = new URL(url).hostname.replace(/^www\./, ""); } catch (_error) {}
+      if (result.status === "fulfilled") {
+        items.push.apply(items, result.value);
+        sources.push({ name, status: "ok", count: result.value.length });
+      } else {
+        sources.push({ name, status: "error", count: 0 });
+      }
+    });
+    const seen = new Set();
+    const deduped = items.filter((item) => {
+      const key = item.link || item.title;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0)).slice(0, config.maxItems);
+    marketSnapshot = {
+      configured: true,
+      items: deduped,
+      sources,
+      lastUpdated: new Date().toISOString(),
+      refreshMinutes: config.refreshMinutes
+    };
+    await fsp.mkdir(path.dirname(MARKET_CACHE_FILE), { recursive: true });
+    await fsp.writeFile(MARKET_CACHE_FILE, JSON.stringify(marketSnapshot, null, 2), "utf8");
+    return marketSnapshot;
+  })().finally(function () { marketRefreshPromise = null; });
+  return marketRefreshPromise;
+}
+
+async function getMarketSnapshot() {
+  const snapshot = await loadMarketCache();
+  return Object.assign({}, snapshot, { refreshMinutes: getMarketConfig().refreshMinutes });
+}
+
+function startMarketScheduler() {
+  const config = getMarketConfig();
+  if (!config.feedUrls.length || marketTimer) return;
+  refreshMarket().catch((error) => console.warn("[market] refresh failed:", error.message));
+  marketTimer = setInterval(function () {
+    refreshMarket().catch((error) => console.warn("[market] refresh failed:", error.message));
+  }, config.refreshMinutes * 60 * 1000);
+  marketTimer.unref();
+}
+
 async function handleApi(req, res, requestId) {
   const pathname = new URL(req.url, "http://localhost").pathname;
 
@@ -227,11 +390,15 @@ async function handleApi(req, res, requestId) {
     sendJson(res, 200, {
       ok: true,
       service: "career-os",
-      version: "0.8.0",
+      version: "0.10.0",
       llm: {
         configured: isConfigured(),
         mode: isConfigured() ? "secure-proxy" : "rules",
         model: isConfigured() ? config.model : null
+      },
+      market: {
+        configured: getMarketConfig().feedUrls.length > 0,
+        refreshMinutes: getMarketConfig().refreshMinutes
       },
       requestId
     });
@@ -268,6 +435,24 @@ async function handleApi(req, res, requestId) {
         requestId
       });
     }
+    return true;
+  }
+
+  if (pathname === "/api/market" && req.method === "GET") {
+    const snapshot = await getMarketSnapshot();
+    sendJson(res, 200, Object.assign({ ok: true, requestId }, snapshot));
+    return true;
+  }
+
+  if (pathname === "/api/market/refresh" && req.method === "POST") {
+    const limit = rateLimit(req);
+    if (!limit.allowed) {
+      res.setHeader("Retry-After", String(limit.retryAfter));
+      sendJson(res, 429, { error: "RATE_LIMITED", retryAfter: limit.retryAfter, requestId });
+      return true;
+    }
+    const snapshot = await refreshMarket();
+    sendJson(res, 200, Object.assign({ ok: true, requestId }, snapshot));
     return true;
   }
 
@@ -327,8 +512,10 @@ function createServer() {
 if (require.main === module) {
   const server = createServer();
   server.listen(PORT, HOST, () => {
+    startMarketScheduler();
     console.log("[career-os] http://" + HOST + ":" + PORT);
     console.log("[career-os] model gateway: " + (isConfigured() ? "secure-proxy configured" : "rules fallback"));
+    console.log("[career-os] market feeds: " + (getMarketConfig().feedUrls.length ? getMarketConfig().feedUrls.length + " configured" : "baseline only"));
   });
 }
 
@@ -338,5 +525,9 @@ module.exports = {
   isConfigured,
   safeStaticPath,
   validateLlmRequest,
-  createServer
+  createServer,
+  getMarketConfig,
+  parseMarketFeed,
+  refreshMarket,
+  getMarketSnapshot
 };

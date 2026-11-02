@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "career-os-v0.8.0";
+const CACHE_NAME = "career-os-v0.10.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -15,14 +15,19 @@ const APP_SHELL = [
   "./model-gateway.js",
   "./job-fit.js",
   "./pwa.js",
+  "./major-fit.js",
+  "./market-intelligence.js",
   "./skills.career.js",
   "./skills.resume.js",
+  "./skills.debrief.js",
   "./skills.interview.js",
   "./skills.plan.js",
   "./skills.rewrite.js",
   "./skills.star.js",
   "./skills.pipeline.js",
   "./skills.evidence.js",
+  "./skills.market.js",
+  "./skills.major.js",
   "./skills.jobs.js",
   "./app.js"
 ];

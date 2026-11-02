@@ -19,6 +19,8 @@
     "sparkles": '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
     "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     "link-2": '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
+    "compass": '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+    "refresh-cw": '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
     "server": '<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/> ',
     "brain-circuit": '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17 5v3"/><path d="M7 5v3"/>',
     "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
@@ -106,6 +108,7 @@
     resume: { root: "简历工坊", current: "诊断与改写" },
     evidence: { root: "证据库", current: "事实与素材" },
     jobs: { root: "岗位研究", current: "JD 与证据匹配" },
+    market: { root: "市场情报", current: "行业与岗位趋势" },
     pipeline: { root: "投递看板", current: "进程与反馈" },
     interview: { root: "模拟面试", current: "训练与反馈" },
     plan: { root: "行动计划", current: "本周主线" },
@@ -254,6 +257,9 @@
         score: 0,
         history: [],
       },
+      interviewDebriefs: [
+        { id: "debrief-1", applicationId: "app-1", company: "云帆科技", role: "产品运营实习生", round: "一面", date: "2026-10-30", outcome: "进入下一轮", selfScore: 64, questions: "请介绍一个你真正推动过的项目。\n为什么选择这个方案，而不是其他方案？\n校园项目的注册用户如何转化为留存？", wentWell: "项目背景和行动讲得比较完整，面试官认可对用户问题的理解。", improve: "结果归因不够清楚，面对数据追问时容易用团队成果代替个人贡献。", nextAction: "补齐核心项目的留存和转化指标，并准备一版数据归因说明。", notes: "面试官偏业务型，后续轮次可能继续追问指标和取舍。", createdAt: "2026-10-30T12:20:00.000Z" }
+      ],
       messages: [
         {
           role: "assistant",
@@ -298,6 +304,7 @@
       state.activeResumeVersionId = migratedId;
     }
     state.interview = Object.assign({}, fresh.interview, saved.interview || {});
+    state.interviewDebriefs = Array.isArray(saved.interviewDebriefs) ? saved.interviewDebriefs : [];
     state.readiness = Object.assign({}, fresh.readiness, saved.readiness || {});
     state.tasks = Array.isArray(saved.tasks) && saved.tasks.length ? saved.tasks : fresh.tasks;
     state.roles = Array.isArray(saved.roles) && saved.roles.length ? saved.roles : fresh.roles;
@@ -331,6 +338,9 @@
     agentOpen: false,
     onboardingStep: 0,
     onboardingDraft: null,
+    market: null,
+    marketLoading: false,
+    marketFilter: "all",
   };
 
   try {
@@ -376,7 +386,12 @@
     const evidenceCoverage = Math.min(12, evidence.length * 2.5);
     const positioning = Math.min(94, Math.round(30 + completeness * 0.3 + (selectedRole ? 6 : 0) + evidenceQuality * 0.15 + evidenceCoverage));
     const resume = Math.max(20, Math.min(94, state.resume.score || 34));
-    const interview = Math.max(18, Math.min(92, state.interview.score || 28));
+    const debriefs = Array.isArray(state.interviewDebriefs) ? state.interviewDebriefs : [];
+    const debriefAverage = debriefs.length ? debriefs.reduce((sum, item) => sum + Number(item.selfScore || 0), 0) / debriefs.length : 0;
+    const mockInterviewScore = Math.max(24, Number(state.interview.score) || 24);
+    const interview = debriefs.length
+      ? Math.max(18, Math.min(94, Math.round(mockInterviewScore * 0.6 + debriefAverage * 0.4)))
+      : Math.max(18, Math.min(92, mockInterviewScore));
     const applications = Array.isArray(state.applications) ? state.applications : [];
     const activeApplications = applications.filter((item) => item.stage !== "closed").length;
     const progressedApplications = applications.filter((item) => ["assessment", "interview", "offer"].includes(item.stage)).length;
@@ -421,14 +436,15 @@
     const hours = Number(profile.weeklyHours) || 10;
     const track = String(profile.targetTrack || "产品");
     const count = hours <= 5 ? 3 : hours <= 9 ? 4 : hours <= 14 ? 5 : 6;
-    const base = [
+    const majorTasks = window.CareerOS && window.CareerOS.majorFit ? window.CareerOS.majorFit.planTasks(profile) : [];
+    const base = majorTasks.concat([
       { day: "今天", title: "重写主项目的成果证据", detail: "按目标-行动-结果重写，至少补 2 个数字或可验证结果。", category: "resume", duration: 25, priority: "P0" },
       { day: "今天", title: "建立 3 个目标岗位样本", detail: "提取高频职责、能力词与业务场景，写进岗位对比表。", category: "research", duration: 30, priority: "P0" },
       { day: "明天", title: "完成一次 15 分钟行为面录音", detail: "回答最有挑战的项目题，复盘结构而非追求标准答案。", category: "interview", duration: 20, priority: "P1" },
       { day: "周三", title: "投递 2 个验证型岗位", detail: "选择匹配度适中、反馈速度快的岗位，验证简历方向。", category: "application", duration: 20, priority: "P1" },
       { day: "周四", title: "做一次行业信息访谈", detail: "向从业者确认日常工作、考核方式和成长路径。", category: "network", duration: 30, priority: "P2" },
       { day: "周日", title: "复盘反馈并更新策略", detail: "区分方向、简历、面试三类问题，只改一个主变量。", category: "review", duration: 25, priority: "P1" },
-    ];
+    ]);
     const tasks = base.slice(0, count).map((task, index) => {
       const previous = currentTasks && currentTasks[index];
       return Object.assign({}, task, { id: makeId("plan"), done: Boolean(previous && previous.done) });
@@ -446,6 +462,7 @@
     $("#pipeline-nav-count").textContent = String((state.applications || []).filter((item) => item.stage !== "closed").length);
     $("#evidence-nav-count").textContent = String((state.evidence || []).length);
     $("#jobs-nav-count").textContent = String((state.jobTargets || []).filter((item) => item.status !== "archived").length);
+    $("#market-nav-count").textContent = String(ui.market && ui.market.items ? ui.market.items.length : 0);
     $("#agent-context-title").textContent = state.profile.gradYear + " 届 · " + state.profile.targetTrack;
     $("#agent-context-completeness").textContent = "画像 " + readiness.completeness + "%";
     $("#agent-context-hours").textContent = "本周 " + state.profile.weeklyHours + "h";
@@ -506,6 +523,7 @@
       resume: renderResume,
       evidence: renderEvidence,
       jobs: renderJobs,
+      market: renderMarket,
       pipeline: renderPipeline,
       interview: renderInterview,
       plan: renderPlan,
@@ -833,6 +851,83 @@
     return html.join("");
   }
 
+  function renderMajorFitCard() {
+    if (!window.CareerOS || !window.CareerOS.majorFit) return "";
+    const fit = window.CareerOS.majorFit.resolve(state.profile.major);
+    return (
+      '<section class="card major-fit-card"><div class="major-fit-head"><div class="major-fit-mark">' + icon("compass", 22) + '</div><div><span class="section-kicker">专业迁移路径</span><h3>' + escapeHTML(fit.label) + '</h3><p>' + escapeHTML(fit.summary) + '</p></div><span class="tag tag-green">' + escapeHTML(fit.identity) + '</span></div>' +
+      '<div class="major-role-row"><span>建议验证岗位</span>' + fit.roles.map((role) => '<b>' + escapeHTML(role) + '</b>').join("") + '</div>' +
+      '<div class="major-fit-grid"><div><span>可迁移优势</span><p>' + fit.strengths.map(escapeHTML).join(" · ") + '</p></div><div><span>主要缺口</span><p>' + fit.gaps.map(escapeHTML).join(" · ") + '</p></div><div><span>第一项补证</span><p>' + escapeHTML(fit.proofIdeas[0]) + '</p></div></div>' +
+      '<div class="major-fit-actions"><button class="button button-secondary" data-action="major-to-plan">' + icon("calendar-check", 15) + '把专业补证写进计划</button><button class="text-button" data-prompt="' + escapeHTML("我的专业是" + state.profile.major + "，请分析适合的岗位和下一步") + '">让 Agent 深入分析' + icon("arrow-right", 14) + '</button></div></section>'
+    );
+  }
+
+  function formatMarketDate(value) {
+    if (!value) return "时间未知";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "时间未知";
+    return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  }
+
+  function renderMarket() {
+    const market = ui.market || { items: [], loading: ui.marketLoading, configured: false, sources: [], baseline: true, lastUpdated: null, refreshMinutes: 120 };
+    const items = Array.isArray(market.items) ? market.items : [];
+    const filters = [
+      { id: "all", label: "全部" },
+      { id: "AI", label: "AI" },
+      { id: "数据分析", label: "数据分析" },
+      { id: "产品", label: "产品" },
+      { id: "运营", label: "运营" },
+      { id: "面试", label: "面试" }
+    ];
+    const filtered = items.filter((item) => ui.marketFilter === "all" || (item.tags || []).includes(ui.marketFilter));
+    const liveItems = items.filter((item) => item.kind === "live");
+    const sources = Array.isArray(market.sources) ? market.sources : [];
+    const html = [];
+    html.push('<div class="view view-market">');
+    html.push(pageHeading(
+      "市场情报",
+      "把趋势当假设，不把热点当答案。",
+      "实时信息来自配置的 RSS / Atom 源；未配置时展示明确标注的本地基线样本，并与你的专业和证据库交叉分析。",
+      '<button class="button button-secondary" data-action="refresh-market">' + icon("refresh-cw", 16) + (market.loading || ui.marketLoading ? "更新中..." : "刷新情报") + '</button><button class="button button-primary" data-prompt="结合最新市场情报分析我的求职方向">' + icon("sparkles", 16) + '让 Agent 解读</button>'
+    ));
+    html.push(
+      '<div class="market-status-band ' + (market.configured ? "is-live" : "is-baseline") + '">' +
+      '<div class="market-status-icon">' + icon(market.configured ? "trending-up" : "info", 20) + '</div><div><strong>' + (market.configured ? "实时信息源已连接" : "当前展示本地基线样本") + '</strong><p>' + (market.configured ? "服务端会按配置周期自动刷新，来源与发布时间会保留在每条信息中。" : "在 .env 中配置 MARKET_FEED_URLS 后，服务端会定时抓取最新岗位与行业信息。") + '</p></div><span class="tag ' + (market.configured ? "tag-green" : "tag-neutral") + '">' + (market.configured ? "实时" : "基线") + '</span></div>'
+    );
+    html.push(
+      '<div class="market-stats"><div><span>信息条目</span><strong>' + items.length + '</strong></div><div><span>实时条目</span><strong>' + liveItems.length + '</strong></div><div><span>信息源</span><strong>' + sources.filter((item) => item.status === "ok").length + '</strong></div><div><span>最近更新</span><strong>' + escapeHTML(formatMarketDate(market.lastUpdated)) + '</strong></div></div>'
+    );
+    html.push('<div class="market-filter-bar"><div class="filter-tabs">' + filters.map((filter) => '<button class="' + (ui.marketFilter === filter.id ? "is-active" : "") + '" data-market-filter="' + filter.id + '">' + filter.label + '</button>').join("") + '</div><span>' + (market.configured ? "每 " + market.refreshMinutes + " 分钟检查更新" : "配置源后自动更新") + '</span></div>');
+    html.push('<div class="market-layout"><section class="market-feed">');
+    if (market.loading || ui.marketLoading) html.push('<div class="card market-loading"><span data-icon="clock-3"></span><p>正在获取最新市场信息...</p></div>');
+    if (filtered.length) {
+      html.push(filtered.map((item) => (
+        '<article class="market-item"><div class="market-item-meta"><span class="tag ' + (item.kind === "live" ? "tag-green" : "tag-neutral") + '">' + (item.kind === "live" ? "实时" : "基线") + '</span><span>' + escapeHTML(item.source || "来源未知") + '</span><span>' + escapeHTML(formatMarketDate(item.publishedAt)) + '</span></div><h3>' + escapeHTML(item.title) + '</h3><p>' + escapeHTML(item.summary) + '</p><div class="market-item-footer"><div>' + (item.tags || []).map((tag) => '<span>' + escapeHTML(tag) + '</span>').join("") + '</div>' + (item.link ? '<a href="' + escapeHTML(item.link) + '" target="_blank" rel="noopener noreferrer">查看来源' + icon("external-link", 12) + '</a>' : "") + '</div></article>'
+      )).join(""));
+    } else if (!market.loading && !ui.marketLoading) {
+      html.push('<div class="card empty-state market-empty"><span>' + icon("search", 28) + '</span><p>当前筛选下没有市场信息</p><button class="button button-secondary" data-action="refresh-market">刷新情报</button></div>');
+    }
+    html.push('</section><aside class="market-sidebar"><section class="card market-source-card"><div class="card-heading"><div><span class="section-kicker">数据来源</span><h3>实时状态</h3></div></div><div class="source-status-list">' + (sources.length ? sources.map((source) => '<div><span class="status-dot ' + (source.status === "ok" ? "ok" : "error") + '"></span><div><strong>' + escapeHTML(source.name) + '</strong><small>' + (source.status === "ok" ? source.count + " 条" : "抓取失败") + '</small></div></div>').join("") : '<p class="muted-copy">尚未配置外部信息源，当前使用本地基线。</p>') + '</div></section><section class="card market-guide-card"><span class="section-kicker">使用边界</span><ul><li>市场信息不等于个人机会</li><li>趋势需要结合城市、岗位级别和专业背景</li><li>来自外部源的内容必须保留原始链接</li><li>薪资和录取率不能由模型补造</li></ul></section></aside></div>');
+    html.push('</div>');
+    return html.join("");
+  }
+
+  async function loadMarketData(force) {
+    if (!window.CareerOS || !window.CareerOS.market || ui.marketLoading) return;
+    ui.marketLoading = true;
+    if (ui.view === "market") renderView();
+    try {
+      ui.market = force ? await window.CareerOS.market.refreshSnapshot() : await window.CareerOS.market.fetchSnapshot();
+    } catch (error) {
+      ui.market = { items: window.CareerOS.market.snapshot().items, loading: false, configured: false, sources: [], baseline: true, lastUpdated: null, refreshMinutes: 120, error: error.message };
+    } finally {
+      ui.marketLoading = false;
+      renderShell();
+      if (ui.view === "market") renderView();
+    }
+  }
+
   function renderEvidence() {
     const items = Array.isArray(state.evidence) ? state.evidence : [];
     const strong = items.filter((item) => Number(item.confidence || 0) >= 75);
@@ -945,6 +1040,7 @@
       "定位不是给人生下结论，而是基于当前证据选出最值得投入的假设，再用低成本行动验证。",
       '<button class="button button-secondary" data-action="open-profile">' + icon("sliders-horizontal", 16) + '更新画像</button><button class="button button-primary" data-prompt="根据我的能力重新评估岗位方向">' + icon("sparkles", 16) + '让 Agent 重算</button>'
     ));
+    html.push(renderMajorFitCard());
     html.push('<div class="positioning-grid">');
     html.push(
       '<section class="card profile-snapshot">' +
@@ -1136,6 +1232,28 @@
     return INTERVIEW_QUESTIONS[state.interview.mode] || INTERVIEW_QUESTIONS.behavior;
   }
 
+  function renderInterviewDebriefs() {
+    const records = (state.interviewDebriefs || []).slice().sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    const average = records.length ? Math.round(records.reduce((sum, item) => sum + Number(item.selfScore || 0), 0) / records.length) : 0;
+    const questionCount = records.reduce((sum, item) => sum + String(item.questions || "").split(/\n+/).filter(Boolean).length, 0);
+    const nextActions = Array.from(new Set(records.map((item) => String(item.nextAction || "").trim()).filter(Boolean)));
+    return (
+      '<section class="card interview-debrief-section">' +
+      '<div class="card-heading"><div><span class="section-kicker">真实面试复盘</span><h3>让每次面试留下可复用的证据。</h3></div><div class="debrief-heading-actions"><span class="tag tag-neutral">' + records.length + ' 场</span><button class="button button-secondary" data-action="open-debrief">' + icon("plus", 14) + '记录真实面试</button></div></div>' +
+      '<div class="debrief-summary"><div><span>平均自评</span><strong>' + average + '</strong></div><div><span>记录问题</span><strong>' + questionCount + '</strong></div><div><span>待补行动</span><strong>' + nextActions.length + '</strong></div><button class="text-button" data-prompt="复盘我的真实面试记录，找出重复出现的表达和数据问题">让 Agent 复盘' + icon("arrow-right", 14) + '</button></div>' +
+      (records.length ? '<div class="debrief-list">' + records.map((item) => {
+        const questions = String(item.questions || "").split(/\n+/).map((question) => question.trim()).filter(Boolean);
+        return '<article class="debrief-card"><div class="debrief-card-head"><div><span class="section-kicker">' + escapeHTML(item.round || "面试") + ' · ' + escapeHTML(item.date || "日期未填") + '</span><h3>' + escapeHTML(item.company || "公司未填") + '<span>·</span>' + escapeHTML(item.role || "岗位未填") + '</h3></div><div class="debrief-score"><strong>' + Number(item.selfScore || 0) + '</strong><span>自评</span></div></div>' +
+          '<div class="debrief-outcome"><span class="tag ' + (/Offer|通过|进入/.test(item.outcome || "") ? "tag-green" : "tag-orange") + '">' + escapeHTML(item.outcome || "结果待定") + '</span>' + (item.applicationId ? '<span class="linked-app">已关联投递</span>' : "") + '</div>' +
+          (questions.length ? '<div class="debrief-questions"><span>被问到的问题</span><ol>' + questions.slice(0, 4).map((question) => '<li>' + escapeHTML(question) + '</li>').join("") + '</ol></div>' : "") +
+          '<div class="debrief-reflection"><div><span>做得好的</span><p>' + escapeHTML(item.wentWell || "待补充") + '</p></div><div><span>需要修正</span><p>' + escapeHTML(item.improve || "待补充") + '</p></div></div>' +
+          (item.nextAction ? '<div class="debrief-next"><span>下一步</span><p>' + escapeHTML(item.nextAction) + '</p></div>' : "") +
+          '<div class="debrief-card-actions"><button class="mini-button" data-prompt="' + escapeHTML("根据 " + item.company + " 的真实面试复盘，带我对最弱的问题再做一次模拟追问") + '">复练最弱问题' + icon("arrow-right", 12) + '</button><button class="text-button" data-action="open-debrief" data-debrief-id="' + escapeHTML(item.id) + '">编辑复盘</button></div></article>';
+      }).join("") + '</div>' : '<div class="empty-state compact"><span>' + icon("message-square", 24) + '</span><p>还没有真实面试记录</p><button class="button button-secondary" data-action="open-debrief">记录第一场面试</button></div>') +
+      '<div class="debrief-footer"><button class="button button-secondary" data-action="debrief-to-plan">' + icon("calendar-check", 15) + '把复盘转成行动任务</button><span>真实反馈比模拟分数更重要；记录事实，不记录情绪化结论。</span></div></section>'
+    );
+  }
+
   function renderInterview() {
     const interview = state.interview;
     const questions = getInterviewQuestions();
@@ -1212,7 +1330,9 @@
       '<section class="card rubric-card"><div class="card-heading"><div><span class="section-kicker">评分维度</span><h3>Agent 看什么</h3></div><span class="tag tag-neutral">4 项</span></div><ul class="rubric-list"><li><span>01</span><p><strong>结构</strong>先结论，后证据，别按时间流水账。</p></li><li><span>02</span><p><strong>贡献</strong>明确你的判断与动作，不用“我们”掩盖。</p></li><li><span>03</span><p><strong>结果</strong>至少一个数字、对比或可验证变化。</p></li><li><span>04</span><p><strong>反思</strong>能说明代价、权衡和下次修正。</p></li></ul></section>' +
       '</aside>'
     );
-    html.push('</div></div>');
+    html.push('</div>');
+    html.push(renderInterviewDebriefs());
+    html.push('</div>');
     return html.join("");
   }
 
@@ -1522,6 +1642,34 @@
     openModal(content, { title: existing ? "更新证据" : "新增一条证据", kicker: "Evidence Vault", label: "证据条目", className: "modal-wide" });
   }
 
+  function openDebriefModal(debriefId) {
+    const existing = (state.interviewDebriefs || []).find((item) => item.id === debriefId) || null;
+    const appOptions = '<option value="">不关联投递</option>' + (state.applications || []).map((application) => '<option value="' + escapeHTML(application.id) + '"' + ((existing ? existing.applicationId : "") === application.id ? " selected" : "") + '>' + escapeHTML(application.company + " · " + application.role) + '</option>').join("");
+    const rounds = ["一面", "二面", "三面", "HR 面", "群面", "业务面", "其他"];
+    const outcomes = ["待结果", "进入下一轮", "Offer", "止步", "其他"];
+    const today = new Date().toISOString().slice(0, 10);
+    const content =
+      '<form id="debrief-form" class="modal-form">' +
+      '<input type="hidden" name="debriefId" value="' + escapeHTML(existing ? existing.id : "") + '" />' +
+      '<div class="form-grid">' +
+      '<label class="field"><span>关联投递</span><select name="applicationId">' + appOptions + '</select></label>' +
+      '<label class="field"><span>面试日期</span><input name="date" type="date" value="' + escapeHTML(existing ? existing.date : today) + '" /></label>' +
+      '<label class="field"><span>公司</span><input name="company" value="' + escapeHTML(existing ? existing.company : "") + '" required /></label>' +
+      '<label class="field"><span>岗位</span><input name="role" value="' + escapeHTML(existing ? existing.role : "") + '" required /></label>' +
+      '<label class="field"><span>轮次</span><select name="round">' + rounds.map((round) => '<option' + ((existing ? existing.round : "一面") === round ? " selected" : "") + '>' + round + '</option>').join("") + '</select></label>' +
+      '<label class="field"><span>结果</span><select name="outcome">' + outcomes.map((outcome) => '<option' + ((existing ? existing.outcome : "待结果") === outcome ? " selected" : "") + '>' + outcome + '</option>').join("") + '</select></label>' +
+      '<label class="field"><span>本次自评 0-100</span><input name="selfScore" type="number" min="0" max="100" value="' + Number(existing ? existing.selfScore : 60) + '" /></label>' +
+      '<label class="field"><span>下一步</span><input name="nextAction" value="' + escapeHTML(existing ? existing.nextAction : "") + '" placeholder="例如：补指标归因并与投递同步" /></label>' +
+      '<label class="field field-wide"><span>被问到的问题</span><textarea name="questions" rows="4" placeholder="每行一个问题">' + escapeHTML(existing ? existing.questions : "") + '</textarea></label>' +
+      '<label class="field field-wide"><span>做得好的</span><textarea name="wentWell" rows="3">' + escapeHTML(existing ? existing.wentWell : "") + '</textarea></label>' +
+      '<label class="field field-wide"><span>需要修正</span><textarea name="improve" rows="3" placeholder="只记录真实反馈，不把猜测写成结论。">' + escapeHTML(existing ? existing.improve : "") + '</textarea></label>' +
+      '<label class="field field-wide"><span>其他备注</span><textarea name="notes" rows="2">' + escapeHTML(existing ? existing.notes : "") + '</textarea></label>' +
+      '</div><div class="modal-actions">' +
+      (existing ? '<button type="button" class="button button-secondary button-danger-ghost" data-action="delete-debrief" data-debrief-id="' + escapeHTML(existing.id) + '">删除复盘</button>' : "") +
+      '<button type="button" class="button button-secondary" data-action="close-modal">取消</button><button type="submit" class="button button-primary">保存真实面试复盘</button></div></form>';
+    openModal(content, { title: existing ? "更新真实面试复盘" : "记录真实面试", kicker: "Interview Debrief", label: "面试复盘", className: "modal-wide" });
+  }
+
   function openApplicationModal(applicationId) {
     const existing = (state.applications || []).find((item) => item.id === applicationId) || null;
     const today = new Date().toISOString().slice(0, 10);
@@ -1584,6 +1732,8 @@
     if (!VIEW_META[view]) return;
     ui.view = view;
     ui.sidebarOpen = false;
+    if (view === "market" && !ui.market) window.setTimeout(() => loadMarketData(false), 0);
+    if (view === "market" && !ui.market) window.setTimeout(() => loadMarketData(false), 0);
     ui.agentOpen = false;
     render();
     $("#main-content").focus({ preventScroll: true });
@@ -1603,6 +1753,8 @@
       profileCompleteness: profileCompleteness,
       llm: window.CareerOS && window.CareerOS.llm ? window.CareerOS.llm.createLlmAdapter() : null,
       jobFit: window.CareerOS && window.CareerOS.jobFit ? window.CareerOS.jobFit : null,
+      majorFit: window.CareerOS && window.CareerOS.majorFit ? window.CareerOS.majorFit : null,
+      marketItems: ui.market && ui.market.items ? ui.market.items : (window.CareerOS && window.CareerOS.market ? window.CareerOS.market.snapshot().items : []),
     };
     const result = await window.CareerAgent.orchestrator.handle(message, context);
     if (result.preset) {
@@ -1941,6 +2093,7 @@
     const modeNode = target.closest("[data-mode]");
     const intensityNode = target.closest("[data-intensity]");
     const filterNode = target.closest("[data-plan-filter]");
+    const marketFilterNode = target.closest("[data-market-filter]");
     const actionNode = target.closest("[data-action]");
 
     if (actionNode && actionNode.getAttribute("data-action") === "close-modal" && target.closest("[data-modal-panel]") && !target.closest('button[data-action="close-modal"]')) {
@@ -2008,6 +2161,13 @@
       return;
     }
 
+    if (marketFilterNode) {
+      event.preventDefault();
+      ui.marketFilter = marketFilterNode.getAttribute("data-market-filter");
+      renderView();
+      return;
+    }
+
     if (actionNode) {
       event.preventDefault();
       const action = actionNode.getAttribute("data-action");
@@ -2032,6 +2192,20 @@
         else if (result.outcome === "dismissed") showToast("已取消安装");
         else if (result.outcome === "installed") showToast("职途已经安装");
         else openInstallGuide();
+      } else if (action === "refresh-market") {
+        await loadMarketData(true);
+        showToast("市场情报已刷新");
+      } else if (action === "major-to-plan") {
+        const tasks = window.CareerOS && window.CareerOS.majorFit ? window.CareerOS.majorFit.planTasks(state.profile) : [];
+        if (tasks.length) addTasksFromGaps(tasks);
+        else showToast("当前专业还没有可生成的补证任务");
+      } else if (action === "refresh-market") {
+        await loadMarketData(true);
+        showToast(ui.market && ui.market.configured ? "市场情报已刷新" : "未配置实时信息源，当前显示基线样本");
+      } else if (action === "major-to-plan") {
+        const tasks = window.CareerOS && window.CareerOS.majorFit ? window.CareerOS.majorFit.planTasks(state.profile) : [];
+        if (tasks.length) addTasksFromGaps(tasks);
+        else showToast("当前专业还没有可生成的补证任务");
       } else if (action === "start-onboarding") {
         ui.onboardingDraft = Object.assign({}, state.profile);
         openOnboardingModal(0);
@@ -2135,6 +2309,24 @@
           { title: "补齐核心证据的业务结果", detail: "为每条强证据补充转化率、留存、效率或质量变化，没有数据就标注待验证。", category: "resume", duration: 30 },
           { title: "追问一项关键决策过程", detail: "记录你比较过哪些方案、依据是什么、最后为什么这样选。", category: "review", duration: 20 },
           { title: "把证据改写为 STAR 故事", detail: "选择一条岗位最相关的经历，按情境、任务、行动、结果整理 2 分钟版本。", category: "interview", duration: 25 }
+        ]);
+      } else if (action === "open-debrief") {
+        openDebriefModal(actionNode.getAttribute("data-debrief-id") || "");
+      } else if (action === "delete-debrief") {
+        const debriefId = actionNode.getAttribute("data-debrief-id");
+        const record = (state.interviewDebriefs || []).find((item) => item.id === debriefId);
+        if (record && window.confirm("确定删除 " + record.company + " 的面试复盘？")) {
+          state.interviewDebriefs = state.interviewDebriefs.filter((item) => item.id !== debriefId);
+          saveState();
+          closeModal();
+          render();
+          showToast("面试复盘已删除");
+        }
+      } else if (action === "debrief-to-plan") {
+        addTasksFromGaps([
+          { title: "复练最近一次面试的最弱问题", detail: "用真实问题重新回答，要求先给结论，再补个人行动和结果。", category: "interview", duration: 25 },
+          { title: "补齐面试中被追问的数据证据", detail: "回到证据库补指标、基线、变化和归因，不编造数字。", category: "resume", duration: 30 },
+          { title: "更新投递记录中的面试反馈", detail: "把真实问题和下一轮准备同步到投递看板。", category: "review", duration: 15 }
         ]);
       } else if (action === "open-application") {
         openApplicationModal(actionNode.getAttribute("data-application-id") || "");
@@ -2259,6 +2451,41 @@
       ui.view = "plan";
       render();
       showToast("新任务已加入本周计划");
+    } else if (form.id === "debrief-form") {
+      const data = new FormData(form);
+      const debriefId = String(data.get("debriefId") || "").trim();
+      const applicationId = String(data.get("applicationId") || "").trim();
+      const application = (state.applications || []).find((item) => item.id === applicationId);
+      const record = {
+        id: debriefId || makeId("debrief"),
+        applicationId: applicationId,
+        company: String(data.get("company") || application && application.company || "").trim(),
+        role: String(data.get("role") || application && application.role || "").trim(),
+        round: String(data.get("round") || "一面"),
+        date: String(data.get("date") || ""),
+        outcome: String(data.get("outcome") || "待结果"),
+        selfScore: clamp(Number(data.get("selfScore")) || 0, 0, 100),
+        questions: String(data.get("questions") || "").trim(),
+        wentWell: String(data.get("wentWell") || "").trim(),
+        improve: String(data.get("improve") || "").trim(),
+        nextAction: String(data.get("nextAction") || "").trim(),
+        notes: String(data.get("notes") || "").trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      state.interviewDebriefs = Array.isArray(state.interviewDebriefs) ? state.interviewDebriefs : [];
+      const index = state.interviewDebriefs.findIndex((item) => item.id === debriefId);
+      if (index >= 0) {
+        record.createdAt = state.interviewDebriefs[index].createdAt || record.updatedAt;
+        state.interviewDebriefs[index] = record;
+      } else {
+        record.createdAt = record.updatedAt;
+        state.interviewDebriefs.push(record);
+      }
+      saveState();
+      closeModal();
+      ui.view = "interview";
+      render();
+      showToast(debriefId ? "面试复盘已更新" : "面试复盘已保存");
     } else if (form.id === "resume-version-form") {
       const data = new FormData(form);
       const name = String(data.get("name") || "").trim();
@@ -2448,6 +2675,8 @@
     document.addEventListener("keydown", handleKeydown);
     window.addEventListener("beforeunload", saveState);
     render();
+    if (window.CareerOS && window.CareerOS.market) window.setTimeout(() => loadMarketData(false), 0);
+    if (window.CareerOS && window.CareerOS.market) window.setTimeout(() => loadMarketData(false), 0);
     if (window.CareerOS && window.CareerOS.pwa) window.CareerOS.pwa.refresh();
     if (window.CareerOS && window.CareerOS.llm) {
       window.CareerOS.llm.refreshServerStatus().then(() => renderModelStatus()).catch(() => renderModelStatus());
@@ -2476,7 +2705,7 @@
     loadResumeVersion: loadResumeVersion,
     syncActiveResumeVersion: syncActiveResumeVersion,
     render: render,
-    version: "0.8.0",
+    version: "0.10.0",
   });
 
   init();

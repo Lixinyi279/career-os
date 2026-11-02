@@ -55,6 +55,11 @@
       "name": "投递看板",
       "short_name": "投递",
       "url": "./?view=pipeline"
+    },
+    {
+      "name": "市场情报",
+      "short_name": "市场",
+      "url": "./?view=market"
     }
   ]
 }

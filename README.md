@@ -2,7 +2,7 @@
 
 面向应届生的一站式求职 Agent，把职业定位、岗位选择、证据整理、简历优化、面试训练、投递跟进和策略复盘放进同一个可交互工作台。
 
-当前版本：**v0.8.0**  
+当前版本：**v0.10.0**  
 运行要求：**Node.js 20+，无第三方依赖**  
 仓库地址：https://github.com/Lixinyi279/career-os
 
@@ -93,6 +93,10 @@
 
 ### 7. STAR 与模拟面试
 
+- 真实面试复盘：记录公司、轮次、问题、自评、结果和下一轮行动
+- 真实反馈与模拟训练共同影响面试就绪度
+- 面试题库按真实问题沉淀，可一键转入训练计划
+
 - 行为面试、业务案例和压力测试三种模式
 - 温和、标准、高压三档强度
 - 逐题回答、即时结构反馈和评分
@@ -127,16 +131,34 @@
 - 结构化状态写回 localStorage
 - AI 不可用时保留规则降级路径
 
+### 11. 专业适配与迁移
+
+- 根据专业自动识别可迁移优势、目标岗位和能力缺口
+- 覆盖信息数据、经管、人文传媒、设计、法学公共、医药生命、工程和教育等专业族群
+- 提供专业专属补证建议和面试关注点
+- 生成计划时优先加入专业相关补证任务
+
+### 12. 实时市场情报
+
+- 展示最新市场条目、来源、发布时间和标签
+- 服务端按配置周期抓取 RSS / Atom 信息源
+- 未配置实时源时明确展示本地基线样本
+- 支持按 AI、数据分析、产品、运营和面试筛选
+- 外部信息保留原始链接，不让模型补造薪资或趋势
+
 ---
 
-## 已接入的 9 个专用 Skill
+## 已接入的 12 个专用 Skill
 
 | Skill ID | 能力 | 典型输入 |
 | --- | --- | --- |
+| **market-brief** | 行业趋势、招聘趋势与实时来源汇总 | “最近招聘市场有什么趋势” |
+| **major-path** | 专业迁移路径、岗位方向和补证建议 | “我的专业适合什么工作” |
 | **job-fit** | JD 研究、证据覆盖率和岗位缺口 | “分析这个目标岗位” |
 | **career-positioning** | 职业方向分析、岗位匹配与主攻建议 | “帮我判断适合什么岗位” |
 | **resume-review** | 简历结构、成果和 JD 相关性诊断 | “分析我的简历” |
 | **mock-interview** | 行为面、案例面和压力面训练 | “开始一次压力面试” |
+| **interview-debrief** | 真实面试题库、表现复盘与重复缺口 | “复盘我的真实面试” |
 | **plan-builder** | 按时间和优先级生成行动方案 | “根据反馈重排本周计划” |
 | **resume-rewrite** | Fact-Lock 简历改写与事实检查 | “用证据重写我的项目经历” |
 | **star-coach** | 将真实经历整理成 STAR 回答 | “把这段经历改成 STAR” |
@@ -235,6 +257,9 @@ macOS / Linux 使用：
 | **LLM_API_KEY** | 空 | 模型密钥，只放在服务端 |
 | **LLM_TIMEOUT_MS** | 60000 | 上游模型超时 |
 | **LLM_MAX_REQUESTS_PER_MINUTE** | 20 | 单 IP 每分钟请求上限 |
+| **MARKET_FEED_URLS** | 空 | 逗号分隔的 RSS / Atom 信息源 |
+| **MARKET_REFRESH_MINUTES** | 120 | 服务端自动刷新间隔，最低 5 分钟 |
+| **MARKET_MAX_ITEMS** | 60 | 单次保留的市场条目上限 |
 
 .env 已被 .gitignore 排除，不会进入仓库。
 
@@ -292,6 +317,18 @@ macOS / Linux 使用：
 
 ---
 
+## 市场情报配置
+
+在 .env 中加入可信 RSS / Atom 源：
+
+    MARKET_FEED_URLS=https://example.com/feed.xml,https://example.org/rss
+    MARKET_REFRESH_MINUTES=120
+    MARKET_MAX_ITEMS=60
+
+服务端首次启动后会立即抓取，并按配置周期持续更新。浏览器只读取服务端整理后的条目，不直接访问外部源。未配置时页面会明确显示“本地基线样本”，不能当作实时市场结论。
+
+---
+
 ## 结构化数据模型
 
 当前核心状态包括：
@@ -316,6 +353,8 @@ macOS / Linux 使用：
       index.html                 应用外壳与导航
       server.js                  静态服务、健康检查、模型代理、限流
       model-gateway.js           安全代理/浏览器直连/规则降级适配
+      major-fit.js               专业迁移与个性化补证引擎
+      market-intelligence.js     实时市场情报与本地基线
       job-fit.js                 JD 关键词与证据覆盖率分析
       pwa.js                     PWA 安装入口
       service-worker.js          离线缓存与应用壳
@@ -324,10 +363,13 @@ macOS / Linux 使用：
       agent-core.js              Skill Registry、EventBus、Orchestrator
       app.js                     领域状态、页面渲染和交互
       assets/styles.css          设计系统和响应式样式
+      skills.market.js           市场趋势 Skill
+      skills.major.js            专业迁移 Skill
       skills.jobs.js             岗位研究与 JD 匹配 Skill
       skills.career.js           方向定位 Skill
       skills.resume.js           简历诊断 Skill
       skills.interview.js        模拟面试 Skill
+      skills.debrief.js          真实面试复盘 Skill
       skills.plan.js             行动计划 Skill
       skills.rewrite.js          Fact-Lock 简历改写 Skill
       skills.star.js             STAR 教练 Skill
@@ -343,7 +385,9 @@ macOS / Linux 使用：
         evidence.test.js
         onboarding.test.js
         job-fit.test.js
+        major-market.test.js
         resume-version.test.js
+        debrief.test.js
         pwa.test.js
       docs/
         LLM_GATEWAY.md
@@ -373,6 +417,9 @@ macOS / Linux 使用：
 - 证据审计与补证计划路由
 - 新用户首次引导与老用户状态迁移
 - 岗位 JD 与证据覆盖率匹配
+- 真实面试复盘与模拟/真实面试意图优先级
+- 专业迁移路径与个性化计划
+- RSS / Atom 市场解析与未配置状态
 - PWA 清单、图标与离线缓存完整性
 - 一键启动和 Docker 文件完整性
 
@@ -460,6 +507,24 @@ macOS / Linux 使用：
 ---
 
 ## 版本记录
+
+### v0.10.0
+
+- 新增 8 类专业族群的迁移路径与补证方案
+- 新增 major-path Skill，并把专业补证任务加入计划生成
+- 新增市场情报页面与 market-brief Skill
+- 新增可配置的 RSS / Atom 采集、缓存和定时刷新
+- 市场页明确区分实时信息与本地基线样本
+- 新增专业与市场情报自动化测试
+
+### v0.9.0
+
+- 新增真实面试复盘与题库
+- 支持关联投递、记录轮次、问题、自评、结果和下一步
+- 新增 interview-debrief Skill，识别重复表达和数据问题
+- 真实面试评分纳入面试就绪度
+- 支持将复盘转成复练和补证任务
+- 新增面试复盘路由测试
 
 ### v0.8.0
 
