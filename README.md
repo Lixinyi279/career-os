@@ -4,7 +4,8 @@
 
 当前版本：**v0.10.0**  
 运行要求：**Node.js 20+，无第三方依赖**  
-仓库地址：https://github.com/Lixinyi279/career-os
+仓库地址：https://github.com/Lixinyi279/career-os  
+在线应用：https://lixinyi279.github.io/career-os/
 
 ---
 
@@ -189,6 +190,14 @@
 ---
 
 ## 最简单安装
+
+### 在线安装（推荐）
+
+1. 打开 https://lixinyi279.github.io/career-os/
+2. 点击页面顶部“安装应用”
+3. 在浏览器确认安装，即可创建桌面或主屏幕入口
+
+在线版适合直接体验、PWA 安装和静态离线使用。安全模型代理与实时市场采集需要运行 Node.js 服务端，因此在线版会自动使用浏览器直连或本地基线。
 
 ### Windows
 
