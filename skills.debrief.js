@@ -27,7 +27,8 @@
     },
 
     match(message) {
-      return /真实面试|面试复盘|面经|面试记录|面试反馈|记录.*面试|面试.*记录/.test(message);
+      if (/投递|申请|流程|进度|offer|笔试|测评|内推/.test(message)) return false;
+      return /复盘|真实面试|面试复盘|面经|面试记录|面试反馈|记录.*面试|面试.*记录/.test(message);
     },
 
     async run(input, context) {

@@ -18,7 +18,7 @@
     },
 
     match(message) {
-      return /投递|申请|流程|进度|反馈|offer|笔试|测评|内推|挂掉/i.test(message);
+      return /投递|申请|流程|进度|反馈|offer|笔试|测评|内推|挂掉|复盘/i.test(message);
     },
 
     async run(input, context) {
