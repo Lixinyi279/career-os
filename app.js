@@ -1570,6 +1570,13 @@
       }
       return '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(currentModel || "") + '" placeholder="填模型名或 endpoint id" /></label>';
     }
+    function baseUrlFieldHtml(presetKey, currentBaseUrl) {
+      const p = window.CareerOS.llm.presets[presetKey];
+      if (!p || !p.baseUrl) {
+        return '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(currentBaseUrl || "") + '" placeholder="https://api.xxx.com/v1" /></label>';
+      }
+      return '<input type="hidden" name="baseUrl" id="llm-baseurl" value="' + escapeHTML(currentBaseUrl || p.baseUrl) + '" />';
+    }
     const cfg = window.CareerOS.llm.getConfig();
     const status = window.CareerOS.llm.getServerStatus();
     const secure = Boolean(status.llmConfigured);
@@ -1587,7 +1594,7 @@
       ? '<div class="modal-note">' + icon("lock", 16) + '<span>浏览器直连配置不会覆盖服务端安全代理。推荐始终通过 .env 管理模型密钥。</span></div>'
       : '<label class="field"><span>模型服务</span><select name="preset" id="llm-preset">' + presetOptions + '</select></label>' +
         '<label class="field"><span>直连 API Key（仅当前会话）</span><input name="apiKey" type="password" value="' + escapeHTML(cfg.apiKey || "") + '" placeholder="sk-..." autocomplete="off" /></label>' +
-        '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(cfg.baseUrl || "") + '" placeholder="https://api.deepseek.com/v1" /></label>' +
+        '<span id="llm-baseurl-wrap">' + baseUrlFieldHtml(cfg.preset || "deepseek", cfg.baseUrl) + '</span>' +
         '<span id="llm-model-wrap">' + modelFieldHtml(cfg.preset || "deepseek", cfg.model) + '</span>' +
         '<div class="modal-note">' + icon("triangle-alert", 16) + '<span>直连模式会把请求直接发往模型厂商，仅建议在本地静态体验时使用。Key 只保存在当前标签页的 sessionStorage。</span></div>';
     const actions = secure
@@ -1601,7 +1608,8 @@
       preset.addEventListener("change", () => {
         const p = window.CareerOS.llm.presets[preset.value];
         if (p) {
-          document.getElementById("llm-baseurl").value = p.baseUrl;
+          const baseWrap = document.getElementById("llm-baseurl-wrap");
+          if (baseWrap) baseWrap.innerHTML = baseUrlFieldHtml(preset.value, p.baseUrl);
           const wrap = document.getElementById("llm-model-wrap");
           if (wrap) wrap.innerHTML = modelFieldHtml(preset.value, p.model);
         }
