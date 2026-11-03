@@ -21,10 +21,27 @@
   var healthPromise = null;
 
   var PRESETS = {
-    deepseek: { label: "DeepSeek（推荐）", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
-    qwen: { label: "通义千问", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus" },
-    doubao: { label: "豆包（火山方舟）", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "" },
-    custom: { label: "自定义（其他 OpenAI 兼容）", baseUrl: "", model: "" }
+    deepseek: {
+      label: "DeepSeek（推荐）",
+      baseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+      models: [
+        { id: "deepseek-chat", label: "DeepSeek-V3（通用对话，推荐）" },
+        { id: "deepseek-reasoner", label: "DeepSeek-R1（深度推理，复杂分析更强）" }
+      ]
+    },
+    qwen: {
+      label: "通义千问",
+      baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      model: "qwen-plus",
+      models: [
+        { id: "qwen-plus", label: "Qwen-Plus（推荐）" },
+        { id: "qwen-max", label: "Qwen-Max（能力最强）" },
+        { id: "qwen-turbo", label: "Qwen-Turbo（响应最快）" }
+      ]
+    },
+    doubao: { label: "豆包（火山方舟）", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "", models: [] },
+    custom: { label: "自定义（其他 OpenAI 兼容）", baseUrl: "", model: "", models: [] }
   };
 
   function canReachServer() {

@@ -1560,6 +1560,16 @@
   }
 
   function openLlmSettingsModal() {
+    function modelFieldHtml(presetKey, currentModel) {
+      const p = window.CareerOS.llm.presets[presetKey] || window.CareerOS.llm.presets.custom;
+      if (p.models && p.models.length) {
+        const opts = p.models.map((m) =>
+          '<option value="' + escapeHTML(m.id) + '"' + (currentModel === m.id ? " selected" : "") + '>' + escapeHTML(m.label) + '</option>'
+        ).join("");
+        return '<label class="field"><span>模型名 model</span><select name="model" id="llm-model">' + opts + '</select></label>';
+      }
+      return '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(currentModel || "") + '" placeholder="填模型名或 endpoint id" /></label>';
+    }
     const cfg = window.CareerOS.llm.getConfig();
     const status = window.CareerOS.llm.getServerStatus();
     const secure = Boolean(status.llmConfigured);
@@ -1578,7 +1588,7 @@
       : '<label class="field"><span>模型服务</span><select name="preset" id="llm-preset">' + presetOptions + '</select></label>' +
         '<label class="field"><span>直连 API Key（仅当前会话）</span><input name="apiKey" type="password" value="' + escapeHTML(cfg.apiKey || "") + '" placeholder="sk-..." autocomplete="off" /></label>' +
         '<label class="field"><span>接口地址 baseUrl</span><input name="baseUrl" id="llm-baseurl" value="' + escapeHTML(cfg.baseUrl || "") + '" placeholder="https://api.deepseek.com/v1" /></label>' +
-        '<label class="field"><span>模型名 model</span><input name="model" id="llm-model" value="' + escapeHTML(cfg.model || "") + '" placeholder="deepseek-chat" /></label>' +
+        '<span id="llm-model-wrap">' + modelFieldHtml(cfg.preset || "deepseek", cfg.model) + '</span>' +
         '<div class="modal-note">' + icon("triangle-alert", 16) + '<span>直连模式会把请求直接发往模型厂商，仅建议在本地静态体验时使用。Key 只保存在当前标签页的 sessionStorage。</span></div>';
     const actions = secure
       ? '<div class="modal-actions"><button type="button" class="button button-secondary" data-action="close-modal">关闭</button><button type="button" class="button button-primary" data-action="test-llm">测试安全网关</button></div>'
@@ -1592,7 +1602,8 @@
         const p = window.CareerOS.llm.presets[preset.value];
         if (p) {
           document.getElementById("llm-baseurl").value = p.baseUrl;
-          document.getElementById("llm-model").value = p.model;
+          const wrap = document.getElementById("llm-model-wrap");
+          if (wrap) wrap.innerHTML = modelFieldHtml(preset.value, p.model);
         }
       });
     }
