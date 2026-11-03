@@ -502,6 +502,11 @@
     }
     pill.className = "model-mode-pill is-" + mode;
     pill.innerHTML = icon(mode === "rules" ? "brain-circuit" : "sparkles", 14) + "<span>" + label + "</span>";
+    const agentPill = $("#agent-model-pill");
+    if (agentPill) {
+      agentPill.className = "model-mode-pill is-" + mode;
+      agentPill.innerHTML = icon(mode === "rules" ? "brain-circuit" : "sparkles", 14) + "<span>" + label + "</span>";
+    }
     const subtitle = $("#skill-status-subtitle");
     if (subtitle) {
       subtitle.textContent = mode === "server" ? "服务端模型网关已连接" : mode === "direct" ? "浏览器临时直连模式" : "规则引擎与本地知识";
