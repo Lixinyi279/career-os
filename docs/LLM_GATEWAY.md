@@ -1,5 +1,19 @@
 # Model Gateway
 
+## 三种运行模式
+
+Model Gateway 在同一接口后面按“优先级”选择当前实际模式，页面右上角模式标签与以下定义一致：
+
+| 模式 | 标识 | 何时生效 | 是否真实调用模型 | 密钥位置 |
+| --- | --- | --- | --- | --- |
+| 服务端安全代理 | `secure-proxy` | 运行 `server.js` 且 `.env` 配置了 `LLM_API_KEY`，健康检查返回 `llm.configured=true` | ✅ 是 | 服务端环境变量 |
+| 浏览器直连 | `browser-direct` | `LLM_NOT_CONFIGURED`（服务端未配置）但浏览器在会话内填了直连 Key | ✅ 是 | 当前标签页 `sessionStorage` |
+| 规则降级 | `rules` | 以上两种都不满足 | ❌ 否，纯本地规则提示 | 无 |
+
+判定优先级：`serverStatus.llmConfigured` → 直连配置 → 规则降级。
+
+> 说明：规则降级**不调用任何模型**，Skill 输出为本地规则提示（如“改写简历请按动作+结果+真实数字”），不代表模型曾运行。
+
 ## 目标
 
 Model Gateway 为所有 Skill 提供统一的大模型入口，隔离厂商差异、密钥、重试、超时、限流和可观测性。

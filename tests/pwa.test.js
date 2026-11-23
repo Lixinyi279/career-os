@@ -28,8 +28,13 @@ test("index exposes install UI and service worker registration", () => {
   const pwa = read("pwa.js");
   assert.match(html, /rel="manifest"/);
   assert.match(html, /id="install-app-button"/);
-  assert.match(html, /src="\.\/pwa\.js"/);
-  assert.match(pwa, /serviceWorker\.register/);
+  // 源码版单独引用 pwa.js；保护构建版合并进 dist/app.min.js，二者都应含 SW 注册逻辑。
+  assert.ok(
+    /src="\.\/pwa\.js"/.test(html) || /src="\.\/dist\/app\.min\.js"/.test(html),
+    "index 应引用 pwa.js（源码）或 dist/app.min.js（保护构建）"
+  );
+  const pwaLogic = /src="\.\/pwa\.js"/.test(html) ? read("pwa.js") : read("dist/app.min.js");
+  assert.match(pwaLogic, /serviceWorker\.register/);
 });
 
 test("service worker shell references existing local files", () => {

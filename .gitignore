@@ -9,3 +9,6 @@ coverage/
 work/
 .tmp/
 data/
+.hallmark/
+# 保护构建产物不入库（部署时才生成；源码保留本地）
+dist/

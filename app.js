@@ -493,23 +493,34 @@
     const direct = Boolean(cfg.apiKey && cfg.baseUrl && cfg.model);
     let mode = "rules";
     let label = "本地规则";
+    let title = "未接入模型：当前输出为本地规则提示，不含真实模型生成结果";
     if (status.llmConfigured) {
       mode = "server";
-      label = "安全 AI";
+      label = "服务端模型";
+      title = "服务端安全代理已连接：模型真实运行，密钥保存在服务端 .env";
     } else if (direct) {
       mode = "direct";
-      label = "直连 AI";
+      label = "浏览器直连";
+      title = "浏览器直连已启用：模型真实运行，密钥仅存当前标签页会话";
     }
     pill.className = "model-mode-pill is-" + mode;
     pill.innerHTML = icon(mode === "rules" ? "brain-circuit" : "sparkles", 14) + "<span>" + label + "</span>";
+    pill.title = title;
     const agentPill = $("#agent-model-pill");
     if (agentPill) {
       agentPill.className = "model-mode-pill is-" + mode;
       agentPill.innerHTML = icon(mode === "rules" ? "brain-circuit" : "sparkles", 14) + "<span>" + label + "</span>";
+      agentPill.title = title;
     }
     const subtitle = $("#skill-status-subtitle");
     if (subtitle) {
-      subtitle.textContent = mode === "server" ? "服务端模型网关已连接" : mode === "direct" ? "浏览器临时直连模式" : "规则引擎与本地知识";
+      // 明确告知：当前实际运行的是哪一档（是否真接了模型），不夸大能力边界。
+      subtitle.textContent =
+        mode === "server"
+          ? "服务端安全代理已连接 · 当前为真实模型输出"
+          : mode === "direct"
+            ? "浏览器直连已启用 · 当前为真实模型输出"
+            : "规则降级中 · 未连接模型，输出为本地规则提示";
     }
   }
 
@@ -1418,7 +1429,7 @@
     html.push(
       '<div class="profile-bottom-grid">' +
       '<section class="card memory-card"><div class="card-heading"><div><span class="section-kicker">长期记忆</span><h3>Agent 记住的关键信息</h3></div><span class="tag tag-green">可编辑</span></div><div class="memory-list">' + state.memory.slice(-4).reverse().map((item) => '<div class="memory-item"><span class="memory-type">' + escapeHTML(item.type) + '</span><p>' + escapeHTML(item.content) + '</p><small>' + formatDate(item.createdAt) + '</small></div>').join("") + '</div></section>' +
-      '<section class="card privacy-card"><div class="privacy-icon">' + icon("shield-check", 24) + '</div><div><span class="section-kicker">数据与边界</span><h3>你的职业数据属于你</h3><p>本演示不会把数据上传到服务器。接入真实模型后，应保留逐项授权、删除记忆、导出档案和敏感信息脱敏能力。</p><div class="privacy-points"><span>' + icon("lock", 14) + '最小权限访问</span><span>' + icon("fingerprint", 14) + '可追溯变更</span><span>' + icon("download", 14) + '一键导出</span></div></div></section>' +
+      '<section class="card privacy-card"><div class="privacy-icon">' + icon("shield-check", 24) + '</div><div><span class="section-kicker">数据与边界</span><h3>你的职业数据属于你</h3><p>数据默认保存在本机浏览器。规则模式下不发起任何网络请求；服务端安全代理模式仅转发单次模型请求，页面不持久化完整简历／面试原文。</p><div class="privacy-points"><span>' + icon("lock", 14) + '最小权限访问</span><span>' + icon("fingerprint", 14) + '可追溯变更</span><span>' + icon("download", 14) + '一键导出</span></div></div></section>' +
       '</div>'
     );
     html.push('</div>');
@@ -1733,10 +1744,13 @@
 
   function openSkillsModal() {
     const skills = window.CareerAgent.registry.list().concat([window.CareerAgent.fallbackSkill.manifest]);
+    const runtime = window.CareerOS && window.CareerOS.llm ? window.CareerOS.llm.createLlmAdapter() : null;
+    const modeLabel = runtime && runtime.mode() === "secure-proxy" ? "服务端模型"
+      : runtime && runtime.mode() === "browser-direct" ? "浏览器直连"
+        : "规则降级";
     const content =
-      '<div class="skill-modal-intro"><span class="skill-runtime-icon">' + icon("blocks", 24) + '</span><div><p>Skill Registry 是职途 Agent 的能力扩展点。每个 Skill 独立声明意图、权限和输出，不直接耦合页面。</p><code>CareerAgent.registry.register(skill)</code></div></div>' +
-      '<div class="skill-modal-list">' + skills.map((skill) => '<article class="skill-modal-item"><div class="skill-modal-head"><span class="status-dot"></span><div><strong>' + escapeHTML(skill.name) + '</strong><code>' + escapeHTML(skill.id) + '</code></div><span class="tag tag-green">在线</span></div><p>' + escapeHTML(skill.description) + '</p><div class="permission-list">' + skill.permissions.map((permission) => '<span>' + escapeHTML(permission) + '</span>').join("") + '</div></article>').join("") + '</div>' +
-      '<div class="modal-note">' + icon("info", 16) + '<span>本版使用本地规则适配器跑通链路。接入模型和真实岗位数据后，Skill 的输入输出协议保持不变。</span></div>';
+      '<div class="skill-modal-intro"><span class="skill-runtime-icon">' + icon("blocks", 24) + '</span><div><p>Skill Registry 是职途 Agent 的能力扩展点。每个 Skill 独立声明意图、权限和输出，不直接耦合页面。</p><code>CareerAgent.registry.register(skill)</code></div><div class="modal-note">' + icon("info", 16) + '<span>当前运行上下文：<strong>' + modeLabel + '</strong>' + (modeLabel === "规则降级" ? "。不会调用模型，输出均为本地规则提示；已接入真实模型的 Skill 会在对应语境标明。" : "。以下 Skill 的模型能力走统一网关。") + '</span></div></div>' +
+      '<div class="skill-modal-list">' + skills.map((skill) => '<article class="skill-modal-item"><div class="skill-modal-head"><span class="status-dot"></span><div><strong>' + escapeHTML(skill.name) + '</strong><code>' + escapeHTML(skill.id) + '</code></div><span class="tag tag-green">' + modeLabel + '</span></div><p>' + escapeHTML(skill.description) + '</p><div class="permission-list">' + skill.permissions.map((permission) => '<span>' + escapeHTML(permission) + '</span>').join("") + '</div></article>').join("") + '</div>';
     openModal(content, { title: "Skill 运行台", kicker: "Agent Foundation", label: "Skill 运行台", className: "modal-wide" });
   }
 

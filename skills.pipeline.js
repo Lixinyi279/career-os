@@ -44,7 +44,9 @@
         (next
           ? "最近的行动是「" + next.nextAction + "」，对应 " + next.company + " · " + next.role + "（" + stageLabel(next.stage) + "）。"
           : "当前没有待处理的投递行动。可以补充新岗位，或把已结束流程归档复盘。") +
-        (feedback.length ? "\n\n已记录 " + feedback.length + " 条反馈。建议先区分是方向问题、简历问题还是面试表达问题，再决定是否扩大投递量。" : "\n\n目前反馈样本不足，不建议只根据一两次结果判断整体方向。");
+        (feedback.length
+          ? "\n\n已记录 " + feedback.length + " 条反馈，例如：「" + feedback[feedback.length - 1].feedback + "」。建议先区分是方向问题、简历问题还是面试表达问题，再决定是否扩大投递量。"
+          : "\n\n目前反馈样本不足，不建议只根据一两次结果判断整体方向。");
 
       if (context.llm && typeof context.llm.complete === "function") {
         try {

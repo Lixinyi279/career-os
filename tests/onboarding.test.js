@@ -69,7 +69,8 @@ function loadApp(storedState) {
 
 test("new users see the onboarding call to action", () => {
   const { window, getNode } = loadApp(null);
-  assert.equal(window.CareerOS.version, "0.5.0");
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+  assert.equal(window.CareerOS.version, pkg.version);
   assert.equal(window.CareerOS.state.onboardingComplete, false);
   assert.match(getNode("#main-content").innerHTML, /第一次使用/);
   assert.match(getNode("#main-content").innerHTML, /data-action="start-onboarding"/);

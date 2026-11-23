@@ -9,6 +9,22 @@
   var SERVER_HEALTH_URL = "/api/health";
   var SERVER_COMPLETE_URL = "/api/llm/complete";
   var HEALTH_TTL_MS = 30000;
+
+  // ── 内置演示配置（浏览器直连，零配置激活真模型）────────────────────────────
+  // 说明：评委点开页面即自动用此 Key 走 model-gateway 的浏览器直连模式，
+  // 任一 Skill 调用 complete() 即命中真实模型。仅在展示场景使用。
+  // 安全提示：此 Key 会随静态站点公开，务必使用一次性/低额度 Key，展示后及时下线。
+  var DEMO = {
+    enabled: true,
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    apiKey: "sk-REPLACE_WITH_DEMO_KEY"
+  };
+
+  function demoConfig() {
+    if (!DEMO.enabled || !DEMO.apiKey || DEMO.apiKey.indexOf("sk-REPLACE") === 0) return null;
+    return { preset: "deepseek", baseUrl: DEMO.baseUrl, model: DEMO.model, apiKey: DEMO.apiKey };
+  }
   var serverStatus = {
     checked: false,
     available: false,
@@ -72,7 +88,13 @@
       delete safeLocal.apiKey;
       writeStore(window.localStorage, STORAGE_KEY, JSON.stringify(safeLocal));
     }
-    return Object.assign({}, local, session);
+    // 用户手动配置优先；否则回落到内置演示配置（若有）。
+    var merged = Object.assign({}, local, session);
+    if (!directConfigured(merged)) {
+      var demo = demoConfig();
+      if (demo) merged = Object.assign({}, demo, merged);
+    }
+    return merged;
   }
 
   function saveConfig(config) {
@@ -220,11 +242,11 @@
   function createLlmAdapter() {
     return {
       configured: function () {
-        return Boolean(serverStatus.llmConfigured || directConfigured());
+        return Boolean(serverStatus.llmConfigured || directConfigured(getConfig()));
       },
       mode: function () {
         if (serverStatus.llmConfigured) return "secure-proxy";
-        if (directConfigured()) return "browser-direct";
+        if (directConfigured(getConfig())) return "browser-direct";
         return "rules";
       },
       refresh: refreshServerStatus,
