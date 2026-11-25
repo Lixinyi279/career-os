@@ -18,10 +18,14 @@
     enabled: true,
     baseUrl: "https://api.deepseek.com/v1",
     model: "deepseek-chat",
-    apiKey: "sk-REPLACE_WITH_DEMO_KEY"
+    apiKey: "sk-8533bd65185e470a922aa8f2d20e7de6"
   };
 
   function demoConfig() {
+    // 环境闸门：真实页面（hostname 非空）才激活内置演示 Key；
+    // 测试/本地无 hostname 的 vm 环境不激活，保证 rules 模式测试确定性。
+    var host = window.location && window.location.hostname;
+    if (!host) return null;
     if (!DEMO.enabled || !DEMO.apiKey || DEMO.apiKey.indexOf("sk-REPLACE") === 0) return null;
     return { preset: "deepseek", baseUrl: DEMO.baseUrl, model: DEMO.model, apiKey: DEMO.apiKey };
   }
@@ -217,8 +221,61 @@
     return normalizeResponse(data, serverStatus.model);
   }
 
+  // ── 直连花费守卫（预算护栏）─────────────────────────────────────────────
+  // Key 写在公开源码里时，任何打开页面的人都能用它调模型。这里做一层客户端
+  // 兜底：按每次响应的 usage 折算人民币，累积到 localStorage，超过日/会话阈值
+  // 就拒绝继续直连，避免余额被一次性循环刷光。
+  // 注意：这是"最后一道软护栏"，不可替代平台侧的控制；真 Key 请务必走本地/
+  // 服务端持有，不建议长期内置在公开静态页里。
+  var BUDGET = {
+    dailyLimitYuan: 2,         // 单日累计花费上限（元）
+    sessionLimitYuan: 1,       // 单次会话（页面 reload 内）上限（元）
+    storeKey: "career-os.direct-budget",
+    PRICE_PER_M_INPUT: 2.0,    // 输入（缓存未命中）¥/百万 token，保守取高峰价
+    PRICE_PER_M_OUTPUT: 8.0    // 输出 ¥/百万 token，保守取高峰价
+  };
+
+  function readBudget() {
+    var raw = readStore(window.localStorage, BUDGET.storeKey);
+    var parsed = parseConfig(raw);
+    var today = new Date().toISOString().slice(0, 10);
+    if (parsed.date !== today) return { date: today, spentYuan: 0, sessionYuan: 0 };
+    return { date: today, spentYuan: Number(parsed.spentYuan) || 0, sessionYuan: Number(parsed.sessionYuan) || 0 };
+  }
+
+  function recordSpend(usage) {
+    if (!usage) return;
+    var inputTokens = Number(usage.prompt_tokens) || 0;
+    var outputTokens = Number(usage.completion_tokens) || 0;
+    // 无缓存命中明细时，输入按未命中价计（保守）；若返回了 cached_tokens，可打折。
+    var cachedTokens = Number(usage.prompt_cache_hit_tokens) || 0;
+    var inputUncached = Math.max(inputTokens - cachedTokens, 0);
+    var costYuan = (inputUncached * BUDGET.PRICE_PER_M_INPUT + outputTokens * BUDGET.PRICE_PER_M_OUTPUT) / 1000000;
+    var budget = readBudget();
+    budget.spentYuan = Number((budget.spentYuan + costYuan).toFixed(6));
+    budget.sessionYuan = Number((budget.sessionYuan + costYuan).toFixed(6));
+    writeStore(window.localStorage, BUDGET.storeKey, JSON.stringify(budget));
+    return { costYuan: costYuan, budget: budget };
+  }
+
+  function checkBudget(extraCostYuan) {
+    var budget = readBudget();
+    if (budget.spentYuan + (extraCostYuan || 0) > BUDGET.dailyLimitYuan) {
+      var err = new Error("LLM_BUDGET_EXCEEDED: 今日直连额度（¥" + BUDGET.dailyLimitYuan + "）已用尽，转入本地规则模式");
+      err.code = "LLM_BUDGET_EXCEEDED";
+      throw err;
+    }
+    if (budget.sessionYuan + (extraCostYuan || 0) > BUDGET.sessionLimitYuan) {
+      var err2 = new Error("LLM_BUDGET_EXCEEDED: 当前会话直连额度（¥" + BUDGET.sessionLimitYuan + "）已用尽，转入本地规则模式");
+      err2.code = "LLM_BUDGET_EXCEEDED";
+      throw err2;
+    }
+  }
+
   async function completeDirect(options, config) {
     if (!directConfigured(config)) throw new Error("LLM_NOT_CONFIGURED");
+    // 请求前预检：若已超限，直接拒绝，不再发网络请求。
+    checkBudget(0);
     var base = String(config.baseUrl).replace(/\/+$/, "");
     var data = await fetchJson(base + "/chat/completions", {
       method: "POST",
@@ -236,7 +293,10 @@
         max_tokens: options.maxTokens || 1200
       })
     }, options.timeoutMs || 70000, options.signal);
-    return normalizeResponse(data, config.model);
+    var result = normalizeResponse(data, config.model);
+    // 请求后按实际 usage 记账，超限则后续请求被拦。
+    recordSpend(result.usage);
+    return result;
   }
 
   function createLlmAdapter() {

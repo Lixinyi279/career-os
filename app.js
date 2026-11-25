@@ -2,6 +2,51 @@
   "use strict";
 
   const STORAGE_KEY = "career-os-state-v1";
+  const THEME_KEY = "career-os-theme-v1";
+  const THEMES = [
+    { id: "forest", label: "末翠", desc: "默认 · 绿白清爽，职途本色", accent: "#1e6a4d" },
+    { id: "dark", label: "深墨", desc: "深色 · 暗夜护眼，专注模式", accent: "#3ddc9a" },
+    { id: "warm", label: "暖杏", desc: "暖色 · 杏奶油感，柔和放松", accent: "#b4582e" },
+    { id: "ocean", label: "浩瀚", desc: "蓝调 · 清冷沉稳，理性克制", accent: "#2a6f8f" }
+  ];
+  function getSavedTheme() {
+    try { return window.localStorage.getItem(THEME_KEY) || "forest"; } catch (_e) { return "forest"; }
+  }
+  function applyTheme(id) {
+    const safe = THEMES.some((t) => t.id === id) ? id : "forest";
+    document.documentElement.setAttribute("data-theme", safe);
+    try { window.localStorage.setItem(THEME_KEY, safe); } catch (_e) { /* 存储不可用时静默 */ }
+    const meta = $('meta[name="theme-color"]');
+    if (meta) {
+      const t = THEMES.find((x) => x.id === safe) || THEMES[0];
+      meta.setAttribute("content", t.accent);
+    }
+    return safe;
+  }
+  function openThemeModal() {
+    const opts = THEMES.map((t) => {
+      const current = (document.documentElement.getAttribute("data-theme") || "forest") === t.id;
+      return (
+        '<button type="button" class="theme-option' + (current ? " is-active" : "") + '" data-theme-option="' + t.id + '">' +
+          '<span class="theme-swatch" style="background:' + t.accent + '"></span>' +
+          '<span class="theme-option-copy"><strong>' + t.label + '</strong><span>' + t.desc + '</span></span>' +
+          (current ? icon("check", 16) : "") +
+        '</button>'
+      );
+    }).join("");
+    const content =
+      '<div class="theme-picker">' + opts +
+        '<p class="theme-note">' + icon("palette", 15) + '<span>选择在右上角任意时刻可改，选择会保存在本机。</span></p>' +
+      '</div>';
+    openModal(content, { title: "界面主题", kicker: "Appearance", label: "界面主题" });
+    $$("[data-theme-option]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-theme-option");
+        applyTheme(id);
+        openThemeModal();
+      });
+    });
+  }
   const $ = (selector, root) => (root || document).querySelector(selector);
   const $$ = (selector, root) => Array.from((root || document).querySelectorAll(selector));
   const iconPaths = {
@@ -52,7 +97,8 @@
     "external-link": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     "bookmark": '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
     "info": '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-    "chevron-down": '<path d="m6 9 6 6 6-6"/>'
+    "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+    "palette": '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.65-.75 1.65-1.65 0-.45-.15-.78-.5-1.05-.3-.3-.45-.6-.45-1.05 0-.9.75-1.65 1.65-1.65H17c3.05 0 5-1.95 5-5 0-5.5-4.5-8.6-10-8.6z"/>'
   };
 
   function icon(name, size) {
@@ -2265,6 +2311,8 @@
         openSkillsModal();
       } else if (action === "open-llm-settings") {
         openLlmSettingsModal();
+      } else if (action === "open-theme") {
+        openThemeModal();
       } else if (action === "test-llm") {
         const original = actionNode.innerHTML;
         actionNode.disabled = true;
@@ -2706,6 +2754,7 @@
   }
 
   function init() {
+    applyTheme(getSavedTheme());
     document.addEventListener("click", handleClick);
     document.addEventListener("submit", handleSubmit);
     document.addEventListener("change", handleFileChange);

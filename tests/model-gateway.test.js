@@ -87,3 +87,31 @@ test("direct API key is session-only and stored separately from durable config",
   assert.equal(sessionStorage.getItem("career-os.llm-config").includes("test-secret"), true);
   assert.equal(api.getConfig().apiKey, "test-secret");
 });
+
+test("demo key is only active in a real page host, not in bare vm", () => {
+  // 无 hostname（vm 测试环境）→ demoConfig 不应激活，避免干扰 rules 模式测试
+  const { api } = loadGateway(async () => jsonResponse(200, { choices: [{ message: { content: "OK" } }] }));
+  const cfg = api.getConfig();
+  assert.equal(cfg.apiKey, undefined);
+});
+
+test("direct mode budget guard blocks after daily/session limit", async () => {
+  const usage = { prompt_tokens: 500000, completion_tokens: 125000, prompt_cache_hit_tokens: 100000 };
+  // 成本 = (400000*2 + 125000*8)/1e6 = 1.8 元，单次就超过 sessionLimit(1元)
+  let calls = 0;
+  let completionCalls = 0;
+  const { api, localStorage } = loadGateway(async (url) => {
+    calls += 1;
+    if (url === "/api/health") return jsonResponse(200, { llm: { configured: false, mode: "rules" } });
+    completionCalls += 1;
+    return jsonResponse(200, { choices: [{ message: { content: "OK" }, finish_reason: "stop" }], model: "m", usage });
+  });
+  api.saveConfig({ preset: "deepseek", apiKey: "real-secret", baseUrl: "https://example.test/v1", model: "test-model" });
+  const adapter = api.createLlmAdapter();
+  // 第一次请求会记账（1.8 元 > 会话 1 元），第二次应在发请求前被拦截
+  const first = await adapter.complete({ user: "hi" });
+  assert.equal(first.text, "OK");
+  assert.ok(localStorage.getItem("career-os.direct-budget").includes("sessionYuan"));
+  await assert.rejects(() => adapter.complete({ user: "again" }), /LLM_BUDGET_EXCEEDED/);
+  assert.equal(completionCalls, 1); // 第二次被拦截，未发出 completion 网络请求
+});
