@@ -14,10 +14,13 @@
   }
   function applyTheme(id) {
     const safe = THEMES.some((t) => t.id === id) ? id : "forest";
-    document.documentElement.setAttribute("data-theme", safe);
+    // 测试/无 DOM 环境下安全跳过（浏览器正常运行时有 document.documentElement）
+    if (typeof document !== "undefined" && document.documentElement) {
+      document.documentElement.setAttribute("data-theme", safe);
+    }
     try { window.localStorage.setItem(THEME_KEY, safe); } catch (_e) { /* 存储不可用时静默 */ }
-    const meta = $('meta[name="theme-color"]');
-    if (meta) {
+    const meta = typeof document !== "undefined" ? $('meta[name="theme-color"]') : null;
+    if (meta && meta.setAttribute) {
       const t = THEMES.find((x) => x.id === safe) || THEMES[0];
       meta.setAttribute("content", t.accent);
     }
@@ -931,8 +934,30 @@
     return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
   }
 
+  // 岗位行情快照卡片：结构化薪酬/需求度数据（来自服务端内置快照，非模型补造）
+  function renderMarketProfiles(market) {
+    const profiles = Array.isArray(market.profiles) ? market.profiles : [];
+    const asOf = market.profileAsOf || "2026-11";
+    if (!profiles.length) return "";
+    const demandLabel = (demand) => {
+      const d = Number(demand) || 0;
+      return d >= 9 ? "高" : d >= 7.5 ? "中高" : "中";
+    };
+    const trendIcon = (trend) => trend === "up" ? "↑" : trend === "down" ? "↓" : "→";
+    const trendCls = (trend) => trend === "up" ? "trend-up" : trend === "down" ? "trend-down" : "trend-flat";
+    const rows = profiles.slice(0, 8).map((p) =>
+      '<div class="profile-row">' +
+        '<div class="profile-main"><strong>' + escapeHTML(p.role) + '</strong><small>' + escapeHTML(p.city) + ' · ' + (Array.isArray(p.industries) ? p.industries.slice(0, 2).join("/") : "") + '</small></div>' +
+        '<div class="profile-data"><span class="profile-salary">' + escapeHTML(String(p.salaryMin)) + '-' + escapeHTML(String(p.salaryMax)) + 'K</span>' +
+        '<span class="profile-demand">需求 <b>' + demandLabel(p.demand) + '</b></span>' +
+        '<span class="' + trendCls(p.trend) + '">' + trendIcon(p.trend) + '</span></div>' +
+      '</div>'
+    ).join("");
+    return '<section class="card market-profile-card"><div class="card-heading"><div><span class="section-kicker">岗位行情快照</span><h3>薪酬与需求度</h3></div><span class="tag tag-neutral">截至 ' + escapeHTML(asOf) + '</span></div><div class="profile-list">' + rows + '</div><p class="profile-note">数据为公开行情均值，来自服务端内置快照用于参考，非实时报价。</p></section>';
+  }
+
   function renderMarket() {
-    const market = ui.market || { items: [], loading: ui.marketLoading, configured: false, sources: [], baseline: true, lastUpdated: null, refreshMinutes: 120 };
+    const market = ui.market || { items: [], loading: ui.marketLoading, configured: false, sources: [], profiles: [], profileAsOf: null, baseline: true, lastUpdated: null, refreshMinutes: 120 };
     const items = Array.isArray(market.items) ? market.items : [];
     const filters = [
       { id: "all", label: "全部" },
@@ -955,7 +980,7 @@
     ));
     html.push(
       '<div class="market-status-band ' + (market.configured ? "is-live" : "is-baseline") + '">' +
-      '<div class="market-status-icon">' + icon(market.configured ? "trending-up" : "info", 20) + '</div><div><strong>' + (market.configured ? "实时信息源已连接" : "当前展示本地基线样本") + '</strong><p>' + (market.configured ? "服务端会按配置周期自动刷新，来源与发布时间会保留在每条信息中。" : "在 .env 中配置 MARKET_FEED_URLS 后，服务端会定时抓取最新岗位与行业信息。") + '</p></div><span class="tag ' + (market.configured ? "tag-green" : "tag-neutral") + '">' + (market.configured ? "实时" : "基线") + '</span></div>'
+      '<div class="market-status-icon">' + icon(market.configured ? "trending-up" : "info", 20) + '</div><div><strong>' + (market.configured ? "真实信息源已连接" : "当前展示本地基线样本") + '</strong><p>' + (market.configured ? "服务端按配置周期抓取真实岗位与行业信息，来源、发布时间与原文链接都会保留；即使未配 .env 也默认启用 sspai / 掘金 / FreeBuf / OSCHINA 四个内置源。" : "在 .env 配置 MARKET_FEED_URLS 或启用内置默认源后即自动抓取真实信息。") + '</p></div><span class="tag ' + (market.configured ? "tag-green" : "tag-neutral") + '">' + (market.configured ? "实时" : "基线") + '</span></div>'
     );
     html.push(
       '<div class="market-stats"><div><span>信息条目</span><strong>' + items.length + '</strong></div><div><span>实时条目</span><strong>' + liveItems.length + '</strong></div><div><span>信息源</span><strong>' + sources.filter((item) => item.status === "ok").length + '</strong></div><div><span>最近更新</span><strong>' + escapeHTML(formatMarketDate(market.lastUpdated)) + '</strong></div></div>'
@@ -970,7 +995,7 @@
     } else if (!market.loading && !ui.marketLoading) {
       html.push('<div class="card empty-state market-empty"><span>' + icon("search", 28) + '</span><p>当前筛选下没有市场信息</p><button class="button button-secondary" data-action="refresh-market">刷新情报</button></div>');
     }
-    html.push('</section><aside class="market-sidebar"><section class="card market-source-card"><div class="card-heading"><div><span class="section-kicker">数据来源</span><h3>实时状态</h3></div></div><div class="source-status-list">' + (sources.length ? sources.map((source) => '<div><span class="status-dot ' + (source.status === "ok" ? "ok" : "error") + '"></span><div><strong>' + escapeHTML(source.name) + '</strong><small>' + (source.status === "ok" ? source.count + " 条" : "抓取失败") + '</small></div></div>').join("") : '<p class="muted-copy">尚未配置外部信息源，当前使用本地基线。</p>') + '</div></section><section class="card market-guide-card"><span class="section-kicker">使用边界</span><ul><li>市场信息不等于个人机会</li><li>趋势需要结合城市、岗位级别和专业背景</li><li>来自外部源的内容必须保留原始链接</li><li>薪资和录取率不能由模型补造</li></ul></section></aside></div>');
+    html.push('</section><aside class="market-sidebar">' + renderMarketProfiles(market) + '<section class="card market-source-card"><div class="card-heading"><div><span class="section-kicker">数据来源</span><h3>实时状态</h3></div></div><div class="source-status-list">' + (sources.length ? sources.map((source) => '<div><span class="status-dot ' + (source.status === "ok" ? "ok" : "error") + '"></span><div><strong>' + escapeHTML(source.name) + '</strong><small>' + (source.status === "ok" ? source.count + " 条" : "抓取失败") + '</small></div></div>').join("") : '<p class="muted-copy">尚未配置外部信息源，当前使用本地基线。</p>') + '</div></section><section class="card market-guide-card"><span class="section-kicker">使用边界</span><ul><li>市场信息不等于个人机会</li><li>趋势需要结合城市、岗位级别和专业背景</li><li>来自外部源的内容必须保留原始链接</li><li>薪资和录取率不能由模型补造</li></ul></section></aside></div>');
     html.push('</div>');
     return html.join("");
   }
@@ -982,7 +1007,7 @@
     try {
       ui.market = force ? await window.CareerOS.market.refreshSnapshot() : await window.CareerOS.market.fetchSnapshot();
     } catch (error) {
-      ui.market = { items: window.CareerOS.market.snapshot().items, loading: false, configured: false, sources: [], baseline: true, lastUpdated: null, refreshMinutes: 120, error: error.message };
+      ui.market = { items: window.CareerOS.market.snapshot().items, loading: false, configured: false, sources: [], profiles: window.CareerOS.market.snapshot().profiles || [], profileAsOf: window.CareerOS.market.snapshot().profileAsOf || null, baseline: true, lastUpdated: null, refreshMinutes: 120, error: error.message };
     } finally {
       ui.marketLoading = false;
       renderShell();

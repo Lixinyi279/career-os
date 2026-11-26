@@ -6671,3 +6671,72 @@ a {
 @media (max-width: 520px) {
   .theme-picker { grid-template-columns: 1fr; }
 }
+
+/* ============ 岗位行情快照卡片 ============ */
+.market-profile-card {
+  margin-bottom: 14px;
+}
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.profile-row:last-child { border-bottom: none; }
+.profile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.profile-main strong {
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.profile-main small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.profile-data {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.profile-salary {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+.profile-demand {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.profile-demand b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.trend-up { color: #e05b4e; font-weight: 700; }
+.trend-down { color: #3d9c6a; }
+.trend-flat { color: var(--muted); }
+.profile-note {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+@media (max-width: 560px) {
+  .profile-row { flex-direction: column; align-items: flex-start; }
+}

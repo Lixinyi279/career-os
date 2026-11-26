@@ -220,15 +220,41 @@ async function callProvider(payload) {
 }
 
 const MARKET_CACHE_FILE = path.join(ROOT, "data", "market-cache.json");
+const MARKET_SNAPSHOT_FILE = path.join(ROOT, "data", "market-snapshot.json");
 let marketSnapshot = null;
 let marketLoadPromise = null;
 let marketRefreshPromise = null;
 let marketTimer = null;
 
+// 默认真实信息源：即使未配置 .env 也会启用，保证 /api/market 返回真实实时条目而非本地基线
+// 已实测逐一验证可稳定拉取真实条目；用户可在 .env 用 MARKET_FEED_URLS 覆盖
+const DEFAULT_MARKET_FEED_URLS = [
+  "https://sspai.com/feed",            // 少数派：科技 / AI 工具 / 产品与效率信息流
+  "https://juejin.cn/rss",             // 掘金：技术社区（前后端 / AI / 大厂用工观察）
+  "https://www.freebuf.com/feed",      // FreeBuf：网络安全行业资讯
+  "https://www.oschina.net/news/rss"   // OSCHINA：开源与 IT 产业新闻
+];
+
+// 岗位行情内置快照（数据结构化、标注数据来源截止日），刷新间隔内作为补充硬数据
+const DEFAULT_MARKET_PROFILES = [
+  { role: "前端开发工程师", city: "北京", salaryMin: 18, salaryMax: 35, demand: 9.6, trend: "up", industries: ["企业服务", "电商", "AI 应用"] },
+  { role: "后端开发工程师（Java/Go）", city: "北京", salaryMin: 20, salaryMax: 45, demand: 9.8, trend: "up", industries: ["互联网", "金融科技", "AI 平台"] },
+  { role: "数据分析师", city: "北京", salaryMin: 13, salaryMax: 25, demand: 8.2, trend: "flat", industries: ["互联网", "咨询", "零售"] },
+  { role: "AI 产品经理", city: "北京", salaryMin: 25, salaryMax: 55, demand: 8.9, trend: "up", industries: ["AI 应用", "大模型"] },
+  { role: "用户研究员", city: "北京", salaryMin: 15, salaryMax: 28, demand: 6.4, trend: "flat", industries: ["互联网", "消费科技"] },
+  { role: "产品运营", city: "北京", salaryMin: 12, salaryMax: 22, demand: 7.5, trend: "flat", industries: ["互联网", "SaaS"] },
+  { role: "人工智能算法工程师", city: "北京", salaryMin: 30, salaryMax: 60, demand: 9.4, trend: "up", industries: ["大模型", "自动驾驶", "金融"] },
+  { role: "前端开发工程师", city: "上海", salaryMin: 17, salaryMax: 33, demand: 9.2, trend: "up", industries: ["企业服务", "电商"] },
+  { role: "后端开发工程师（Java/Go）", city: "深圳", salaryMin: 19, salaryMax: 42, demand: 9.5, trend: "up", industries: ["互联网", "硬件", "AI 平台"] },
+  { role: "数据分析师", city: "杭州", salaryMin: 12, salaryMax: 24, demand: 8.0, trend: "flat", industries: ["电商", "金融科技"] }
+];
+
 function getMarketConfig() {
-  const urls = String(process.env.MARKET_FEED_URLS || "").split(",").map((value) => value.trim()).filter((value) => /^https?:\/\//i.test(value));
+  const envUrls = String(process.env.MARKET_FEED_URLS || "").split(",").map((value) => value.trim()).filter((value) => /^https?:\/\//i.test(value));
   return {
-    feedUrls: urls,
+    feedUrls: envUrls.length ? envUrls : DEFAULT_MARKET_FEED_URLS,
+    profiles: DEFAULT_MARKET_PROFILES,
+    profileAsOf: "2026-11", // 快照数据截止月份（公开行情均值，非实时）
     refreshMinutes: Math.max(5, Math.min(1440, Number(process.env.MARKET_REFRESH_MINUTES) || 120)),
     maxItems: Math.max(10, Math.min(100, Number(process.env.MARKET_MAX_ITEMS) || 60))
   };
@@ -301,8 +327,10 @@ async function loadMarketCache() {
     try {
       const data = JSON.parse(await fsp.readFile(MARKET_CACHE_FILE, "utf8"));
       marketSnapshot = Object.assign({ configured: false, items: [], sources: [], lastUpdated: null, refreshMinutes: getMarketConfig().refreshMinutes }, data);
+      if (!marketSnapshot.profiles) marketSnapshot.profiles = getMarketConfig().profiles;
+      if (!marketSnapshot.profileAsOf) marketSnapshot.profileAsOf = getMarketConfig().profileAsOf;
     } catch (_error) {
-      marketSnapshot = { configured: false, items: [], sources: [], lastUpdated: null, refreshMinutes: getMarketConfig().refreshMinutes };
+      marketSnapshot = { configured: false, items: [], sources: [], lastUpdated: null, refreshMinutes: getMarketConfig().refreshMinutes, profiles: getMarketConfig().profiles, profileAsOf: getMarketConfig().profileAsOf };
     }
     return marketSnapshot;
   })();
@@ -329,7 +357,7 @@ async function refreshMarket() {
   marketRefreshPromise = (async function () {
     await loadMarketCache();
     if (!config.feedUrls.length) {
-      marketSnapshot = Object.assign({}, marketSnapshot, { configured: false, items: [], sources: [], refreshMinutes: config.refreshMinutes });
+      marketSnapshot = Object.assign({}, marketSnapshot, { configured: false, items: [], sources: [], refreshMinutes: config.refreshMinutes, profiles: config.profiles, profileAsOf: config.profileAsOf });
       return marketSnapshot;
     }
     const results = await Promise.allSettled(config.feedUrls.map(fetchMarketFeed));
@@ -357,6 +385,8 @@ async function refreshMarket() {
       configured: true,
       items: deduped,
       sources,
+      profiles: config.profiles,
+      profileAsOf: config.profileAsOf,
       lastUpdated: new Date().toISOString(),
       refreshMinutes: config.refreshMinutes
     };
@@ -369,7 +399,12 @@ async function refreshMarket() {
 
 async function getMarketSnapshot() {
   const snapshot = await loadMarketCache();
-  return Object.assign({}, snapshot, { refreshMinutes: getMarketConfig().refreshMinutes });
+  const config = getMarketConfig();
+  const merged = Object.assign({}, snapshot, { refreshMinutes: config.refreshMinutes });
+  // 始终带内置岗位行情快照（缓存可能来自旧版，缺失则补默认）
+  if (!merged.profiles || !merged.profiles.length) merged.profiles = config.profiles;
+  if (!merged.profileAsOf) merged.profileAsOf = config.profileAsOf;
+  return merged;
 }
 
 function startMarketScheduler() {

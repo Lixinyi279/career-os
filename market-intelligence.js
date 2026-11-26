@@ -16,13 +16,17 @@
     refreshMinutes: 120,
     items: mergeItems([]),
     sources: [],
+    profiles: [],
+    profileAsOf: null,
     error: null,
     loading: false
   };
 
+  // 仅当没有真实实时条目时才并入基线样本，避免真实数据被“占位样本”冲淡
   function mergeItems(liveItems) {
-    var baseline = BASELINE.map(function (item) { return Object.assign({}, item); });
-    return (Array.isArray(liveItems) ? liveItems : []).concat(baseline);
+    var live = Array.isArray(liveItems) ? liveItems : [];
+    if (live.length) return live.slice();
+    return BASELINE.map(function (item) { return Object.assign({}, item); });
   }
 
   async function fetchSnapshot() {
@@ -40,6 +44,8 @@
       state.lastUpdated = data.lastUpdated || null;
       state.refreshMinutes = data.refreshMinutes || 120;
       state.sources = data.sources || [];
+      state.profiles = data.profiles || [];
+      state.profileAsOf = data.profileAsOf || null;
       state.items = mergeItems(data.items);
       state.error = null;
     } catch (error) {
@@ -60,6 +66,8 @@
       state.lastUpdated = data.lastUpdated || null;
       state.refreshMinutes = data.refreshMinutes || 120;
       state.sources = data.sources || [];
+      state.profiles = data.profiles || [];
+      state.profileAsOf = data.profileAsOf || null;
       state.items = mergeItems(data.items);
       state.error = null;
     } catch (error) {
@@ -76,6 +84,8 @@
       lastUpdated: state.lastUpdated,
       refreshMinutes: state.refreshMinutes,
       sources: state.sources.slice(),
+      profiles: state.profiles.slice(),
+      profileAsOf: state.profileAsOf,
       items: state.items.slice(),
       error: state.error,
       loading: state.loading,
